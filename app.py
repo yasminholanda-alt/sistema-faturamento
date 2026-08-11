@@ -8,6 +8,17 @@ st.set_page_config(page_title="Faturamento EBM Quintto", layout="centered")
 st.title("📊 Gerador de Faturamento - EBM Quintto")
 st.write("Preencha os dados da Nota Fiscal abaixo para gerar as 3 planilhas de faturamento automaticamente.")
 
+# Função para escrever em células mescladas de forma segura
+def safe_write(ws, cell_address, value):
+    cell = ws[cell_address]
+    if type(cell).__name__ == 'MergedCell':
+        for merged_range in ws.merged_cells.ranges:
+            if cell_address in merged_range:
+                ws.cell(row=merged_range.min_row, column=merged_range.min_col, value=value)
+                return
+    else:
+        ws[cell_address] = value
+
 with st.form("faturamento_form"):
     col1, col2 = st.columns(2)
     tipo = col1.selectbox("Tipo de Serviço", ["Mídia", "Produção", "Custos Internos"])
@@ -37,7 +48,7 @@ with st.form("faturamento_form"):
 
 if submit:
     try:
-        # Cálculos do faturamento
+        # Cálculos Financeiros
         honorarios_ebm = valor_bruto - valor_fornecedor
         
         if simples_nacional == "SIM":
@@ -63,8 +74,12 @@ if submit:
             # 1. PLANILHA CARTA
             wb_carta = openpyxl.load_workbook("01_CARTA.xlsx")
             sheet_carta = wb_carta.active
-            sheet_carta["B1"], sheet_carta["B2"], sheet_carta["B3"] = empenho, nup, nf_ebm
-            sheet_carta["B4"], sheet_carta["B5"], sheet_carta["B6"] = data_ebm, valor_bruto, descricao
+            safe_write(sheet_carta, "B1", empenho)
+            safe_write(sheet_carta, "B2", nup)
+            safe_write(sheet_carta, "B3", nf_ebm)
+            safe_write(sheet_carta, "B4", data_ebm)
+            safe_write(sheet_carta, "B5", valor_bruto)
+            safe_write(sheet_carta, "B6", descricao)
             
             excel_carta = io.BytesIO()
             wb_carta.save(excel_carta)
@@ -73,9 +88,15 @@ if submit:
             # 2. PLANILHA FINANCEIRA
             wb_fin = openpyxl.load_workbook("02_PLANILHA FINANCEIRA.xlsx")
             sheet_fin = wb_fin.active
-            sheet_fin["B1"], sheet_fin["B2"], sheet_fin["B3"] = empenho, nup, tipo
-            sheet_fin["B4"], sheet_fin["B5"], sheet_fin["B6"] = fornecedor, cnpj_forn, nf_forn
-            sheet_fin["B7"], sheet_fin["B8"], sheet_fin["B9"] = valor_bruto, valor_fornecedor, honorarios_ebm
+            safe_write(sheet_fin, "B1", empenho)
+            safe_write(sheet_fin, "B2", nup)
+            safe_write(sheet_fin, "B3", tipo)
+            safe_write(sheet_fin, "B4", fornecedor)
+            safe_write(sheet_fin, "B5", cnpj_forn)
+            safe_write(sheet_fin, "B6", nf_forn)
+            safe_write(sheet_fin, "B7", valor_bruto)
+            safe_write(sheet_fin, "B8", valor_fornecedor)
+            safe_write(sheet_fin, "B9", honorarios_ebm)
             
             excel_fin = io.BytesIO()
             wb_fin.save(excel_fin)
@@ -84,12 +105,27 @@ if submit:
             # 3. DADOS PARA LIQUIDAR
             wb_liq = openpyxl.load_workbook("17_PLANILHA DADOS PARA LIQUIDAR.xlsx")
             sheet_liq = wb_liq.active
-            sheet_liq["B1"], sheet_liq["B2"], sheet_liq["B3"] = empenho, nup, valor_bruto
-            sheet_liq["B4"], sheet_liq["B5"], sheet_liq["B6"] = (ret_iss_ebm + ret_iss_forn), (ret_irrf_ebm + ret_irrf_forn), valor_liq_nf
+            safe_write(sheet_liq, "B1", empenho)
+            safe_write(sheet_liq, "B2", nup)
+            safe_write(sheet_liq, "B3", valor_bruto)
+            safe_write(sheet_liq, "B4", (ret_iss_ebm + ret_iss_forn))
+            safe_write(sheet_liq, "B5", (ret_irrf_ebm + ret_irrf_forn))
+            safe_write(sheet_liq, "B6", valor_liq_nf)
             
-            sheet_liq["A9"], sheet_liq["B9"], sheet_liq["E9"], sheet_liq["F9"], sheet_liq["G9"] = nf_ebm, data_ebm, ret_iss_ebm, ret_irrf_ebm, honorarios_ebm
-            sheet_liq["A13"], sheet_liq["B13"], sheet_liq["C13"], sheet_liq["D13"] = nf_forn, data_forn, cnpj_forn, fornecedor
-            sheet_liq["E13"], sheet_liq["F13"], sheet_liq["G13"], sheet_liq["H13"] = ret_iss_forn, ret_irrf_forn, valor_fornecedor, simples_nacional
+            safe_write(sheet_liq, "A9", nf_ebm)
+            safe_write(sheet_liq, "B9", data_ebm)
+            safe_write(sheet_liq, "E9", ret_iss_ebm)
+            safe_write(sheet_liq, "F9", ret_irrf_ebm)
+            safe_write(sheet_liq, "G9", honorarios_ebm)
+            
+            safe_write(sheet_liq, "A13", nf_forn)
+            safe_write(sheet_liq, "B13", data_forn)
+            safe_write(sheet_liq, "C13", cnpj_forn)
+            safe_write(sheet_liq, "D13", fornecedor)
+            safe_write(sheet_liq, "E13", ret_iss_forn)
+            safe_write(sheet_liq, "F13", ret_irrf_forn)
+            safe_write(sheet_liq, "G13", valor_fornecedor)
+            safe_write(sheet_liq, "H13", simples_nacional)
             
             excel_liq = io.BytesIO()
             wb_liq.save(excel_liq)
