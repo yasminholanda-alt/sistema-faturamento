@@ -2,7 +2,7 @@ import streamlit as st
 import io
 import zipfile
 
-from reportlab.lib.pagesizes import letter
+from reportlab.lib.pagesizes import letter, landscape
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -11,7 +11,7 @@ from reportlab.lib.units import cm
 st.set_page_config(page_title="Gerador de Faturamento EBM", layout="centered")
 
 st.title("📊 Gerador de Faturamento - EBM Quintto")
-st.write("Preencha as informações abaixo para gerar os 3 relatórios em PDF no formato Retrato.")
+st.write("Preencha as informações abaixo para gerar a Carta (Retrato) e os Controles (Paisagem).")
 
 with st.form("faturamento_form"):
     col1, col2 = st.columns(2)
@@ -67,25 +67,22 @@ if submit:
         valor_liq_total = valor_liq_forn + valor_liq_ebm
         total_iss = ret_iss_ebm + ret_iss_forn
         total_irrf = ret_irrf_ebm + ret_irrf_forn
-        total_impostos = ret_imp_ebm + ret_imp_forn
 
-        # --- ESTILOS BASE DO REPORTLAB ---
+        # --- ESTILOS BASE ---
         styles = getSampleStyleSheet()
         normal = ParagraphStyle('NormalCustom', parent=styles['Normal'], fontName='Helvetica', fontSize=9, leading=12)
         bold = ParagraphStyle('BoldCustom', parent=normal, fontName='Helvetica-Bold')
-        title = ParagraphStyle('TitleCustom', parent=normal, fontName='Helvetica-Bold', fontSize=11, leading=14, alignment=1)
+        title = ParagraphStyle('TitleCustom', parent=normal, fontName='Helvetica-Bold', fontSize=12, leading=15, alignment=1)
         
-        # Estilos para células de tabelas (com quebra automática para evitar cortes)
-        cell_header = ParagraphStyle('HeaderCell', fontName='Helvetica-Bold', fontSize=6, leading=7, alignment=1, textColor=colors.whitesmoke)
-        cell_body = ParagraphStyle('BodyCell', fontName='Helvetica', fontSize=6, leading=7, alignment=1)
-        cell_body_bold = ParagraphStyle('BodyCellBold', fontName='Helvetica-Bold', fontSize=6, leading=7, alignment=1)
+        cell_header = ParagraphStyle('HeaderCell', fontName='Helvetica-Bold', fontSize=8, leading=10, alignment=1, textColor=colors.whitesmoke)
+        cell_body = ParagraphStyle('BodyCell', fontName='Helvetica', fontSize=8, leading=10, alignment=1)
+        cell_body_bold = ParagraphStyle('BodyCellBold', fontName='Helvetica-Bold', fontSize=8, leading=10, alignment=1)
 
-        # Helper para criar células formatadas
         def p_head(txt): return Paragraph(txt, cell_header)
         def p_cell(txt, is_bold=False): return Paragraph(str(txt), cell_body_bold if is_bold else cell_body)
 
         # ==========================================
-        # 1. GERADOR PDF 01_CARTA
+        # 1. GERADOR PDF 01_CARTA (RETRATO)
         # ==========================================
         def gerar_carta_pdf():
             buffer = io.BytesIO()
@@ -123,29 +120,25 @@ if submit:
             return buffer.getvalue()
 
         # ==========================================
-        # 2. GERADOR PDF 02_PLANILHA FINANCEIRA
+        # 2. GERADOR PDF 02_PLANILHA FINANCEIRA (PAISAGEM)
         # ==========================================
         def gerar_financeira_pdf():
             buffer = io.BytesIO()
-            doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=1*cm, leftMargin=1*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
+            doc = SimpleDocTemplate(buffer, pagesize=landscape(letter), rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
             story = []
 
-            # Cabeçalho do documento
-            story.append(Paragraph("<b>EBM QUINTTO COMUNICAÇÃO LTDA</b>", title))
-            story.append(Paragraph("<b>CONTRATO 177/2024 - CONTROLE DE REPASSE (CASA CIVIL)</b>", title))
+            story.append(Paragraph("<b>EBM QUINTTO COMUNICAÇÃO LTDA - CONTROLE DE REPASSE (CASA CIVIL)</b>", title))
             story.append(Spacer(1, 10))
 
-            # Bloco de Informações da NF
             info_text = f"""
-            <b>Nº EMPENHO:</b> {empenho} &nbsp;&nbsp;|&nbsp;&nbsp; <b>NF EBM:</b> {nf_ebm} &nbsp;&nbsp;|&nbsp;&nbsp; <b>EMISSÃO:</b> {data_ebm}<br/>
+            <b>CONTRATO 177/2024</b> &nbsp;&nbsp;|&nbsp;&nbsp; <b>Nº EMPENHO:</b> {empenho} &nbsp;&nbsp;|&nbsp;&nbsp; <b>NF EBM:</b> {nf_ebm} &nbsp;&nbsp;|&nbsp;&nbsp; <b>EMISSÃO:</b> {data_ebm}<br/>
             <b>DOCUMENTO / REF:</b> {numero_doc} - PAGTO REF. {descricao} - {fornecedor if tipo_servico != 'Custos Internos' else 'EBM QUINTTO'}
             """
             story.append(Paragraph(info_text, normal))
-            story.append(Spacer(1, 12))
+            story.append(Spacer(1, 15))
 
-            # Tabela Controle de Repasse (Total de largura: 19.5 cm)
             headers = [
-                p_head("Nº EMP."), p_head("NF EBM"), p_head("FORNECEDOR"), p_head("NF FORN."), 
+                p_head("Nº EMP."), p_head("NF EBM"), p_head("FORNECEDOR / VEÍCULO"), p_head("NF FORN."), 
                 p_head("VALOR FORN."), p_head("RET. IMP."), p_head("VALOR LÍQ. FORN."), 
                 p_head("HONORÁRIOS EBM"), p_head("RET. IMP."), p_head("VALOR LÍQ. EBM"), p_head("VALOR LÍQ. NF")
             ]
@@ -157,23 +150,23 @@ if submit:
                 p_cell(f"R$ {valor_liq_ebm:,.2f}"), p_cell(f"R$ {valor_liq_total:,.2f}", is_bold=True)
             ]
 
-            col_widths = [1.3*cm, 1.2*cm, 2.7*cm, 1.2*cm, 1.8*cm, 1.5*cm, 1.8*cm, 1.8*cm, 1.5*cm, 1.8*cm, 1.9*cm]
+            # Largura expandida para preencher os ~25 cm úteis do modo Paisagem
+            col_widths = [2.0*cm, 1.8*cm, 4.2*cm, 1.8*cm, 2.3*cm, 2.0*cm, 2.3*cm, 2.3*cm, 2.0*cm, 2.3*cm, 2.5*cm]
             t = Table([headers, row], colWidths=col_widths)
             t.setStyle(TableStyle([
                 ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1F497D')),
                 ('ALIGN', (0,0), (-1,-1), 'CENTER'),
                 ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-                ('BOTTOMPADDING', (0,0), (-1,-1), 5),
-                ('TOPPADDING', (0,0), (-1,-1), 5),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+                ('TOPPADDING', (0,0), (-1,-1), 8),
                 ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#1F497D')),
             ]))
             story.append(t)
             story.append(Spacer(1, 20))
 
-            # Resumo Total
             story.append(Paragraph(f"<b>VALOR BRUTO TOTAL DA NF:</b> R$ {valor_bruto:,.2f}", bold))
             story.append(Paragraph(f"<b>VALOR LÍQUIDO A RECEBER:</b> R$ {valor_liq_total:,.2f}", bold))
-            story.append(Spacer(1, 30))
+            story.append(Spacer(1, 20))
 
             try:
                 story.append(Image("assinatura da gabriela martins.jpeg", width=4*cm, height=1.8*cm))
@@ -185,19 +178,18 @@ if submit:
             return buffer.getvalue()
 
         # ==========================================
-        # 3. GERADOR PDF 03_DADOS PARA LIQUIDAR
+        # 3. GERADOR PDF 03_DADOS PARA LIQUIDAR (PAISAGEM)
         # ==========================================
         def gerar_liquidar_pdf():
             buffer = io.BytesIO()
-            doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=1*cm, leftMargin=1*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
+            doc = SimpleDocTemplate(buffer, pagesize=landscape(letter), rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
             story = []
 
             story.append(Paragraph("<b>DADOS PARA LIQUIDAÇÃO DE PROCESSO</b>", title))
-            story.append(Spacer(1, 10))
+            story.append(Spacer(1, 15))
 
-            # Tabela Resumo Superior (4 colunas)
-            p_res_head = lambda txt: Paragraph(f"<b>{txt}</b>", ParagraphStyle('RHead', parent=normal, fontSize=8, fontName='Helvetica-Bold'))
-            p_res_val = lambda txt: Paragraph(str(txt), ParagraphStyle('RVal', parent=normal, fontSize=8))
+            p_res_head = lambda txt: Paragraph(f"<b>{txt}</b>", ParagraphStyle('RHead', parent=normal, fontSize=9, fontName='Helvetica-Bold'))
+            p_res_val = lambda txt: Paragraph(str(txt), ParagraphStyle('RVal', parent=normal, fontSize=9))
 
             resumo_data = [
                 [p_res_head("EMPENHO"), p_res_val(empenho), p_res_head("NUP"), p_res_val(nup)],
@@ -205,22 +197,21 @@ if submit:
                 [p_res_head("RETENÇÃO ISS"), p_res_val(f"R$ {total_iss:,.2f}"), p_res_head("RETENÇÃO IRRF"), p_res_val(f"R$ {total_irrf:,.2f}")]
             ]
             
-            t_resumo = Table(resumo_data, colWidths=[3.5*cm, 6*cm, 3.5*cm, 6.5*cm])
+            t_resumo = Table(resumo_data, colWidths=[4.5*cm, 8.0*cm, 4.5*cm, 8.5*cm])
             t_resumo.setStyle(TableStyle([
                 ('BACKGROUND', (0,0), (0,-1), colors.HexColor('#F2F2F2')),
                 ('BACKGROUND', (2,0), (2,-1), colors.HexColor('#F2F2F2')),
                 ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#B0C4DE')),
                 ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-                ('TOPPADDING', (0,0), (-1,-1), 4),
-                ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+                ('TOPPADDING', (0,0), (-1,-1), 5),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 5),
             ]))
             story.append(t_resumo)
-            story.append(Spacer(1, 15))
+            story.append(Spacer(1, 20))
 
-            # Tabela Detalhada (Agência / Fornecedor)
             detalhe_headers = [
-                p_head("RAZÃO SOCIAL"), p_head("NF"), p_head("EMISSÃO"), p_head("CNPJ"), 
-                p_head("BASE CÁLCULO"), p_head("ISS"), p_head("IRRF"), p_head("SIMPLES")
+                p_head("RAZÃO SOCIAL / AGÊNCIA"), p_head("NF"), p_head("EMISSÃO"), p_head("CNPJ"), 
+                p_head("BASE CÁLCULO"), p_head("ISS"), p_head("IRRF"), p_head("SIMPLES NACIONAL")
             ]
 
             row_ebm = [
@@ -234,29 +225,29 @@ if submit:
                 p_cell(f"R$ {valor_fornecedor:,.2f}"), p_cell(f"R$ {ret_iss_forn:,.2f}"), p_cell(f"R$ {ret_irrf_forn:,.2f}"), p_cell(simples_nacional)
             ]
 
-            col_widths_det = [4.5*cm, 1.2*cm, 1.8*cm, 3.0*cm, 2.5*cm, 2.0*cm, 2.0*cm, 2.5*cm]
+            col_widths_det = [6.0*cm, 1.8*cm, 2.5*cm, 3.8*cm, 3.2*cm, 2.7*cm, 2.7*cm, 2.8*cm]
             t_detalhe = Table([detalhe_headers, row_ebm, row_forn], colWidths=col_widths_det)
             t_detalhe.setStyle(TableStyle([
                 ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1F497D')),
                 ('ALIGN', (0,0), (-1,-1), 'CENTER'),
                 ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
                 ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#1F497D')),
-                ('TOPPADDING', (0,0), (-1,-1), 5),
-                ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+                ('TOPPADDING', (0,0), (-1,-1), 6),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 6),
             ]))
             story.append(t_detalhe)
 
             doc.build(story)
             return buffer.getvalue()
 
-        # --- COMPACTAÇÃO DOS 3 PDFS EM ZIP ---
+        # --- COMPACTAÇÃO EM ZIP ---
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, "w") as zf:
             zf.writestr(f"01_CARTA_NF{nf_ebm}.pdf", gerar_carta_pdf())
             zf.writestr(f"02_PLANILHA_FINANCEIRA_NF{nf_ebm}.pdf", gerar_financeira_pdf())
             zf.writestr(f"03_DADOS_LIQUIDAR_NF{nf_ebm}.pdf", gerar_liquidar_pdf())
 
-        st.success("Tudo pronto! Os 3 relatórios em PDF foram gerados no formato Retrato sem cortes.")
+        st.success("Tudo pronto! A Carta está em Retrato e os 2 Controles em Paisagem.")
         st.download_button(
             label="📥 Baixar 3 PDFs (ZIP)",
             data=zip_buffer.getvalue(),
