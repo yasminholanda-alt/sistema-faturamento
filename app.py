@@ -11,7 +11,7 @@ from reportlab.lib.units import cm
 st.set_page_config(page_title="Gerador de Faturamento EBM", layout="centered")
 
 st.title("📊 Gerador de Faturamento - EBM Quintto")
-st.write("Preencha as informações abaixo para gerar os 3 relatórios com Logo e Assinatura.")
+st.write("Preencha as informações abaixo para gerar os 3 relatórios em PDF.")
 
 with st.form("faturamento_form"):
     col1, col2 = st.columns(2)
@@ -42,6 +42,10 @@ with st.form("faturamento_form"):
     
     submit = st.form_submit_button("Gerar 3 PDFs")
 
+# Helper para formatação de moeda brasileira (Ex: 1.440,00)
+def fmt(val):
+    return f"{val:,.2f}".replace(",", "v").replace(".", ",").replace("v", ".")
+
 if submit:
     try:
         # --- CÁLCULOS FINANCEIROS ---
@@ -68,18 +72,19 @@ if submit:
         total_iss = ret_iss_ebm + ret_iss_forn
         total_irrf = ret_irrf_ebm + ret_irrf_forn
 
-        # --- ESTILOS ---
+        # Estilos globais
         styles = getSampleStyleSheet()
-        normal = ParagraphStyle('NormalCustom', parent=styles['Normal'], fontName='Helvetica', fontSize=9, leading=12)
+        normal = ParagraphStyle('NormalCustom', parent=styles['Normal'], fontName='Helvetica', fontSize=8, leading=10)
         bold = ParagraphStyle('BoldCustom', parent=normal, fontName='Helvetica-Bold')
-        title = ParagraphStyle('TitleCustom', parent=normal, fontName='Helvetica-Bold', fontSize=12, leading=15, alignment=0)
-        
-        cell_header = ParagraphStyle('HeaderCell', fontName='Helvetica-Bold', fontSize=8, leading=10, alignment=1, textColor=colors.whitesmoke)
-        cell_body = ParagraphStyle('BodyCell', fontName='Helvetica', fontSize=8, leading=10, alignment=1)
-        cell_body_bold = ParagraphStyle('BodyCellBold', fontName='Helvetica-Bold', fontSize=8, leading=10, alignment=1)
+        title_center = ParagraphStyle('TitleCenter', parent=normal, fontName='Helvetica-Bold', fontSize=9, leading=12, alignment=1)
 
-        def p_head(txt): return Paragraph(txt, cell_header)
-        def p_cell(txt, is_bold=False): return Paragraph(str(txt), cell_body_bold if is_bold else cell_body)
+        # Células de tabela ajustadas
+        cell_head = ParagraphStyle('CHead', fontName='Helvetica-Bold', fontSize=6.5, leading=8, alignment=1)
+        cell_body = ParagraphStyle('CBody', fontName='Helvetica', fontSize=6.5, leading=8, alignment=1)
+        cell_body_bold = ParagraphStyle('CBodyBold', fontName='Helvetica-Bold', fontSize=6.5, leading=8, alignment=1)
+
+        def p_h(txt): return Paragraph(f"<b>{txt}</b>", cell_head)
+        def p_c(txt, b=False): return Paragraph(str(txt), cell_body_bold if b else cell_body)
 
         # ==========================================
         # 1. GERADOR PDF 01_CARTA (RETRATO)
@@ -89,9 +94,8 @@ if submit:
             doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=2*cm, leftMargin=2*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
             story = []
 
-            # Logo no topo
             try:
-                story.append(Image("logo da ebm.jpeg", width=4*cm, height=1.3*cm))
+                story.append(Image("logo da ebm.jpeg", width=3.5*cm, height=1.2*cm))
                 story.append(Spacer(1, 15))
             except:
                 pass
@@ -106,11 +110,11 @@ if submit:
             story.append(Spacer(1, 10))
 
             if tipo_servico == "Custos Internos":
-                texto = f"Segue para pagamento o processo de Custo Interno - EBMQUINTTO.<br/><br/>PAGTO REF. A SERVIÇOS INTERNOS - {descricao} - EBM QUINTTO<br/>CNPJ: 14.470.051/0001-91<br/>OC Nº {numero_doc} no valor de <b>R$ {valor_bruto:,.2f}</b>."
+                texto = f"Segue para pagamento o processo de Custo Interno - EBMQUINTTO.<br/><br/>PAGTO REF. A SERVIÇOS INTERNOS - {descricao} - EBM QUINTTO<br/>CNPJ: 14.470.051/0001-91<br/>OC Nº {numero_doc} no valor de <b>R$ {fmt(valor_bruto)}</b>."
             elif tipo_servico == "Mídia":
-                texto = f"Segue para pagamento o processo do Serviço de Mídia.<br/><br/>PAGTO REF. {descricao}<br/>CNPJ: {cnpj_forn}<br/>Documento Nº {numero_doc} no valor de <b>R$ {valor_bruto:,.2f}</b>."
+                texto = f"Segue para pagamento o processo do Serviço de Mídia.<br/><br/>PAGTO REF. {descricao}<br/>CNPJ: {cnpj_forn}<br/>Documento Nº {numero_doc} no valor de <b>R$ {fmt(valor_bruto)}</b>."
             else:
-                texto = f"Segue para pagamento o processo de Produção.<br/><br/>PAGTO REF. A {descricao}<br/>CNPJ: {cnpj_forn}<br/>Documento Nº {numero_doc} no valor de <b>R$ {valor_bruto:,.2f}</b>."
+                texto = f"Segue para pagamento o processo de Produção.<br/><br/>PAGTO REF. A {descricao}<br/>CNPJ: {cnpj_forn}<br/>Documento Nº {numero_doc} no valor de <b>R$ {fmt(valor_bruto)}</b>."
 
             story.append(Paragraph(texto, normal))
             story.append(Spacer(1, 15))
@@ -131,66 +135,85 @@ if submit:
         # ==========================================
         def gerar_financeira_pdf():
             buffer = io.BytesIO()
-            doc = SimpleDocTemplate(buffer, pagesize=landscape(letter), rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
+            doc = SimpleDocTemplate(buffer, pagesize=landscape(letter), rightMargin=1*cm, leftMargin=1*cm, topMargin=1*cm, bottomMargin=1*cm)
             story = []
 
-            # Cabeçalho com Logo
+            # Cabeçalho com Logo e Título Centralizado
+            p_header_text = Paragraph(f"""
+            <b>CONTRATO 177/2024</b><br/>
+            <b>CONTROLE DE REPASSE - CASA CIVIL</b><br/>
+            <b>Nº EMPENHO {empenho}</b><br/>
+            <b>NF EBM QUINTTO Nº {nf_ebm}</b><br/>
+            <b>.:. EMISSÃO {data_ebm} .:. RECEBIMENTO // .:.</b>
+            """, title_center)
+
             try:
-                img_logo = Image("logo da ebm.jpeg", width=4*cm, height=1.3*cm)
-                p_title = Paragraph("<b>EBM QUINTTO COMUNICAÇÃO LTDA<br/>CONTROLE DE REPASSE (CASA CIVIL)</b>", title)
-                header_table = Table([[img_logo, p_title]], colWidths=[4.5*cm, 20.5*cm])
-                header_table.setStyle(TableStyle([
-                    ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-                    ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-                ]))
-                story.append(header_table)
+                img_logo = Image("logo da ebm.jpeg", width=3.2*cm, height=1.1*cm)
+                h_table = Table([[img_logo, p_header_text]], colWidths=[4*cm, 21.5*cm])
+                h_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('ALIGN', (0,0), (0,0), 'LEFT')]))
+                story.append(h_table)
             except:
-                story.append(Paragraph("<b>EBM QUINTTO COMUNICAÇÃO LTDA - CONTROLE DE REPASSE (CASA CIVIL)</b>", title))
+                story.append(p_header_text)
 
             story.append(Spacer(1, 10))
 
-            info_text = f"""
-            <b>CONTRATO 177/2024</b> &nbsp;&nbsp;|&nbsp;&nbsp; <b>Nº EMPENHO:</b> {empenho} &nbsp;&nbsp;|&nbsp;&nbsp; <b>NF EBM:</b> {nf_ebm} &nbsp;&nbsp;|&nbsp;&nbsp; <b>EMISSÃO:</b> {data_ebm}<br/>
-            <b>DOCUMENTO / REF:</b> {numero_doc} - PAGTO REF. {descricao} - {fornecedor if tipo_servico != 'Custos Internos' else 'EBM QUINTTO'}
-            """
-            story.append(Paragraph(info_text, normal))
-            story.append(Spacer(1, 15))
-
+            # Faixa superior de descrição do serviço
+            desc_text = Paragraph(f"<b>{numero_doc} - PAGTO REF. {descricao} - {fornecedor if tipo_servico != 'Custos Internos' else 'EBM QUINTTO'}</b>", cell_head)
+            
+            # Tabela Controle de Repasse
             headers = [
-                p_head("Nº EMP."), p_head("NF EBM"), p_head("FORNECEDOR / VEÍCULO"), p_head("NF FORN."), 
-                p_head("VALOR FORN."), p_head("RET. IMP."), p_head("VALOR LÍQ. FORN."), 
-                p_head("HONORÁRIOS EBM"), p_head("RET. IMP."), p_head("VALOR LÍQ. EBM"), p_head("VALOR LÍQ. NF")
+                p_h("N° EMP"), p_h("NF EBM"), p_h("FORNECEDOR"), p_h("NF FORN."), 
+                p_h("VALOR<br/>FORNECEDOR"), p_h("RET. IMP."), p_h("VALOR LÍQ. FORN."), 
+                p_h("HONORÁRIOS EBM"), p_h("SERVIÇOS INTERNOS EBM"), p_h("RET. IMP."), 
+                p_h("VALOR LÍQ. EBM"), p_h("VALOR LÍQ NF"), p_h("DATA REPASSE")
             ]
 
-            row = [
-                p_cell(empenho), p_cell(nf_ebm), p_cell(fornecedor if tipo_servico != 'Custos Internos' else 'SERVIÇOS INTERNOS EBM'),
-                p_cell(nf_forn if nf_forn else '-'), p_cell(f"R$ {valor_fornecedor:,.2f}"), p_cell(f"R$ {ret_imp_forn:,.2f}"),
-                p_cell(f"R$ {valor_liq_forn:,.2f}"), p_cell(f"R$ {honorarios_ebm:,.2f}"), p_cell(f"R$ {ret_imp_ebm:,.2f}"),
-                p_cell(f"R$ {valor_liq_ebm:,.2f}"), p_cell(f"R$ {valor_liq_total:,.2f}", is_bold=True)
+            is_custos = tipo_servico == "Custos Internos"
+            forn_nome = "SERVIÇOS INTERNOS EBM" if is_custos else fornecedor
+
+            row_data = [
+                p_c(empenho), p_c(nf_ebm), p_c(forn_nome), p_c(nf_forn if nf_forn else ''),
+                p_c(fmt(valor_fornecedor)), p_c(fmt(ret_imp_forn)), p_c(fmt(valor_liq_forn)),
+                p_c(fmt(0.0) if is_custos else fmt(honorarios_ebm)),
+                p_c(fmt(honorarios_ebm) if is_custos else fmt(0.0)),
+                p_c(fmt(ret_imp_ebm)), p_c(fmt(valor_liq_ebm)), p_c(fmt(valor_liq_total)), p_c('')
             ]
 
-            col_widths = [2.0*cm, 1.8*cm, 4.2*cm, 1.8*cm, 2.3*cm, 2.0*cm, 2.3*cm, 2.3*cm, 2.0*cm, 2.3*cm, 2.5*cm]
-            t = Table([headers, row], colWidths=col_widths)
+            row_total = [
+                p_c('TOTAL', True), p_c(''), p_c(''), p_c(''),
+                p_c(f"R$ {fmt(valor_fornecedor)}", True), p_c(fmt(ret_imp_forn), True), p_c(fmt(valor_liq_forn), True),
+                p_c(fmt(0.0) if is_custos else fmt(honorarios_ebm), True),
+                p_c(fmt(honorarios_ebm) if is_custos else fmt(0.0), True),
+                p_c(fmt(ret_imp_ebm), True), p_c(fmt(valor_liq_ebm), True), p_c(fmt(valor_liq_total), True), p_c('')
+            ]
+
+            col_w = [1.4*cm, 1.4*cm, 4.5*cm, 1.4*cm, 2.2*cm, 1.6*cm, 2.2*cm, 2.1*cm, 2.1*cm, 1.6*cm, 2.1*cm, 2.2*cm, 1.8*cm]
+            
+            table_data = [[desc_text] + ['']*12, headers, row_data, row_total]
+            t = Table(table_data, colWidths=col_w)
             t.setStyle(TableStyle([
-                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1F497D')),
+                ('SPAN', (0,0), (12,0)),
+                ('BACKGROUND', (0,0), (12,1), colors.HexColor('#D9D9D9')),
                 ('ALIGN', (0,0), (-1,-1), 'CENTER'),
                 ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-                ('BOTTOMPADDING', (0,0), (-1,-1), 8),
-                ('TOPPADDING', (0,0), (-1,-1), 8),
-                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#1F497D')),
+                ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+                ('TOPPADDING', (0,0), (-1,-1), 3),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 3),
             ]))
             story.append(t)
             story.append(Spacer(1, 15))
 
-            story.append(Paragraph(f"<b>VALOR BRUTO TOTAL DA NF:</b> R$ {valor_bruto:,.2f}", bold))
-            story.append(Paragraph(f"<b>VALOR LÍQUIDO A RECEBER:</b> R$ {valor_liq_total:,.2f}", bold))
-            story.append(Spacer(1, 15))
-
+            # Assinatura no canto inferior direito
             try:
-                story.append(Image("assinatura da gabriela martins.jpeg", width=4*cm, height=1.8*cm))
+                img_ass = Image("assinatura da gabriela martins.jpeg", width=3.5*cm, height=1.4*cm)
+                p_ass_txt = Paragraph("<b>Gabriela S. Martins</b><br/><font size=5>EBM QUINTTO COMUNICAÇÃO LTDA<br/>Gabriela Martins - Gerente Financeira<br/>gabriela.martins@ebmquintto.com.br</font>", cell_body)
+                ass_box = Table([[img_ass], [p_ass_txt]], colWidths=[4.5*cm])
+                ass_box.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER')]))
+                
+                layout_ass = Table([['', ass_box]], colWidths=[21*cm, 4.5*cm])
+                story.append(layout_ass)
             except:
                 pass
-            story.append(Paragraph("<b>Gabriela Martins</b><br/>Gerente Financeira - EBM QUINTTO", normal))
 
             doc.build(story)
             return buffer.getvalue()
@@ -200,80 +223,81 @@ if submit:
         # ==========================================
         def gerar_liquidar_pdf():
             buffer = io.BytesIO()
-            doc = SimpleDocTemplate(buffer, pagesize=landscape(letter), rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
+            doc = SimpleDocTemplate(buffer, pagesize=landscape(letter), rightMargin=1*cm, leftMargin=1*cm, topMargin=1*cm, bottomMargin=1*cm)
             story = []
 
-            # Cabeçalho com Logo
-            try:
-                img_logo = Image("logo da ebm.jpeg", width=4*cm, height=1.3*cm)
-                p_title = Paragraph("<b>DADOS PARA LIQUIDAÇÃO DE PROCESSO</b>", title)
-                header_table = Table([[img_logo, p_title]], colWidths=[4.5*cm, 20.5*cm])
-                header_table.setStyle(TableStyle([
-                    ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-                    ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-                ]))
-                story.append(header_table)
-            except:
-                story.append(Paragraph("<b>DADOS PARA LIQUIDAÇÃO DE PROCESSO</b>", title))
+            # Tabela Resumo Canto Superior Esquerdo
+            p_lh = lambda txt: Paragraph(f"<b>{txt}</b>", ParagraphStyle('LH', parent=normal, fontSize=7, fontName='Helvetica-Bold'))
+            p_lv = lambda txt: Paragraph(str(txt), ParagraphStyle('LV', parent=normal, fontSize=7, alignment=1))
 
+            res_data = [
+                [p_lh("EMPENHO"), p_lv(empenho)],
+                [p_lh("NUP"), p_lv(nup)],
+                [p_lh("VALOR TOTAL"), p_lv(fmt(valor_bruto))],
+                [p_lh("RETENÇÃO ISS"), p_lv(fmt(total_iss))],
+                [p_lh("RETENÇÃO IRRF"), p_lv(fmt(total_irrf))],
+                [p_lh("VALOR LÍQUIDO"), p_lv(fmt(valor_liq_total))]
+            ]
+
+            t_res = Table(res_data, colWidths=[3.2*cm, 4.5*cm])
+            t_res.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (0,-1), colors.HexColor('#D9D9D9')),
+                ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('TOPPADDING', (0,0), (-1,-1), 2),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+            ]))
+            
+            # Alinha tabela de resumo à esquerda
+            layout_top = Table([[t_res, '']], colWidths=[8*cm, 17.5*cm])
+            layout_top.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP')]))
+            story.append(layout_top)
+            story.append(Spacer(1, 15))
+
+            # Tabela 1: Agência
+            head_ag = [p_h("NF AGÊNCIA"), p_h("DATA EMISSÃO"), p_h("CNPJ"), p_h("RAZÃO SOCIAL"), p_h("ISS"), p_h("IRRF"), p_h("BASE DE CÁLCULO"), p_h("SIMPLES NACIONAL")]
+            row_ag = [p_c(nf_ebm), p_c(data_ebm), p_c("14470051000191"), p_c("EBM QUINTTO COMUNICAÇÃO LTDA"), p_c(fmt(ret_iss_ebm)), p_c(fmt(ret_irrf_ebm)), p_c(fmt(honorarios_ebm)), p_c("NÃO")]
+            tot_ag = [p_c("TOTAL", True), p_c(''), p_c(''), p_c(''), p_c(fmt(ret_iss_ebm), True), p_c(fmt(ret_irrf_ebm), True), p_c(fmt(honorarios_ebm), True), p_c('')]
+
+            col_w3 = [2.5*cm, 2.2*cm, 3.2*cm, 7.0*cm, 1.8*cm, 1.8*cm, 2.7*cm, 2.3*cm]
+            t_ag = Table([head_ag, row_ag, tot_ag], colWidths=col_w3)
+            t_ag.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#D9D9D9')),
+                ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('TOPPADDING', (0,0), (-1,-1), 3),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+            ]))
+            story.append(t_ag)
             story.append(Spacer(1, 12))
 
-            p_res_head = lambda txt: Paragraph(f"<b>{txt}</b>", ParagraphStyle('RHead', parent=normal, fontSize=9, fontName='Helvetica-Bold'))
-            p_res_val = lambda txt: Paragraph(str(txt), ParagraphStyle('RVal', parent=normal, fontSize=9))
+            # Tabela 2: Fornecedor
+            head_fo = [p_h("NF FORNECEDOR"), p_h("DATA EMISSÃO"), p_h("CNPJ"), p_h("RAZÃO SOCIAL"), p_h("ISS"), p_h("IRRF"), p_h("BASE DE CÁLCULO"), p_h("SIMPLES NACIONAL")]
+            row_fo = [p_c(nf_forn if nf_forn else ''), p_c(data_forn if data_forn else ''), p_c(cnpj_forn if cnpj_forn else ''), p_c(fornecedor if fornecedor else ''), p_c(fmt(ret_iss_forn)), p_c(fmt(ret_irrf_forn)), p_c(fmt(valor_fornecedor)), p_c(simples_nacional)]
+            tot_fo = [p_c("TOTAL", True), p_c(''), p_c(''), p_c(''), p_c(fmt(ret_iss_forn), True), p_c(fmt(ret_irrf_forn), True), p_c(fmt(valor_fornecedor), True), p_c('')]
 
-            resumo_data = [
-                [p_res_head("EMPENHO"), p_res_val(empenho), p_res_head("NUP"), p_res_val(nup)],
-                [p_res_head("VALOR TOTAL"), p_res_val(f"R$ {valor_bruto:,.2f}"), p_res_head("VALOR LÍQUIDO"), p_res_val(f"R$ {valor_liq_total:,.2f}")],
-                [p_res_head("RETENÇÃO ISS"), p_res_val(f"R$ {total_iss:,.2f}"), p_res_head("RETENÇÃO IRRF"), p_res_val(f"R$ {total_irrf:,.2f}")]
-            ]
-            
-            t_resumo = Table(resumo_data, colWidths=[4.5*cm, 8.0*cm, 4.5*cm, 8.5*cm])
-            t_resumo.setStyle(TableStyle([
-                ('BACKGROUND', (0,0), (0,-1), colors.HexColor('#F2F2F2')),
-                ('BACKGROUND', (2,0), (2,-1), colors.HexColor('#F2F2F2')),
-                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#B0C4DE')),
+            t_fo = Table([head_fo, row_fo, tot_fo], colWidths=col_w3)
+            t_fo.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#D9D9D9')),
+                ('GRID', (0,0), (-1,-1), 0.5, colors.black),
                 ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-                ('TOPPADDING', (0,0), (-1,-1), 5),
-                ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+                ('TOPPADDING', (0,0), (-1,-1), 3),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 3),
             ]))
-            story.append(t_resumo)
+            story.append(t_fo)
             story.append(Spacer(1, 15))
 
-            detalhe_headers = [
-                p_head("RAZÃO SOCIAL / AGÊNCIA"), p_head("NF"), p_head("EMISSÃO"), p_head("CNPJ"), 
-                p_head("BASE CÁLCULO"), p_head("ISS"), p_head("IRRF"), p_head("SIMPLES NACIONAL")
-            ]
-
-            row_ebm = [
-                p_cell("EBM QUINTTO COMUNICAÇÃO LTDA", is_bold=True), p_cell(nf_ebm), p_cell(data_ebm), p_cell("14.470.051/0001-91"),
-                p_cell(f"R$ {honorarios_ebm:,.2f}"), p_cell(f"R$ {ret_iss_ebm:,.2f}"), p_cell(f"R$ {ret_irrf_ebm:,.2f}"), p_cell("NÃO")
-            ]
-
-            row_forn = [
-                p_cell(fornecedor if fornecedor else 'SEM FORNECEDOR TERCEIRO', is_bold=True), p_cell(nf_forn if nf_forn else '-'), 
-                p_cell(data_forn if data_forn else '-'), p_cell(cnpj_forn if cnpj_forn else '-'),
-                p_cell(f"R$ {valor_fornecedor:,.2f}"), p_cell(f"R$ {ret_iss_forn:,.2f}"), p_cell(f"R$ {ret_irrf_forn:,.2f}"), p_cell(simples_nacional)
-            ]
-
-            col_widths_det = [6.0*cm, 1.8*cm, 2.5*cm, 3.8*cm, 3.2*cm, 2.7*cm, 2.7*cm, 2.8*cm]
-            t_detalhe = Table([detalhe_headers, row_ebm, row_forn], colWidths=col_widths_det)
-            t_detalhe.setStyle(TableStyle([
-                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1F497D')),
-                ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#1F497D')),
-                ('TOPPADDING', (0,0), (-1,-1), 6),
-                ('BOTTOMPADDING', (0,0), (-1,-1), 6),
-            ]))
-            story.append(t_detalhe)
-            story.append(Spacer(1, 15))
-
-            # Assinatura adicionada no arquivo 03
+            # Assinatura no canto inferior esquerdo
             try:
-                story.append(Image("assinatura da gabriela martins.jpeg", width=4*cm, height=1.8*cm))
+                img_ass = Image("assinatura da gabriela martins.jpeg", width=3.5*cm, height=1.4*cm)
+                p_ass_txt = Paragraph("<b>Gabriela S. Martins</b><br/><font size=5>EBM QUINTTO COMUNICAÇÃO LTDA<br/>Gabriela Martins - Gerente Financeira<br/>gabriela.martins@ebmquintto.com.br</font>", cell_body)
+                ass_box = Table([[img_ass], [p_ass_txt]], colWidths=[4.5*cm])
+                ass_box.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'LEFT')]))
+                
+                layout_ass = Table([[ass_box, '']], colWidths=[4.5*cm, 21*cm])
+                story.append(layout_ass)
             except:
                 pass
-            story.append(Paragraph("<b>Gabriela Martins</b><br/>Gerente Financeira - EBM QUINTTO", normal))
 
             doc.build(story)
             return buffer.getvalue()
@@ -285,7 +309,7 @@ if submit:
             zf.writestr(f"02_PLANILHA_FINANCEIRA_NF{nf_ebm}.pdf", gerar_financeira_pdf())
             zf.writestr(f"03_DADOS_LIQUIDAR_NF{nf_ebm}.pdf", gerar_liquidar_pdf())
 
-        st.success("Tudo pronto! Logo aplicada em todos os 3 PDFs e Assinatura incluída no arquivo 03.")
+        st.success("Tudo pronto! Layouts idênticos aos modelos gerados em PDF.")
         st.download_button(
             label="📥 Baixar 3 PDFs (ZIP)",
             data=zip_buffer.getvalue(),
