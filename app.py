@@ -1,6 +1,5 @@
 import streamlit as st
 import openpyxl
-import base64
 import io
 import zipfile
 
@@ -76,4 +75,4 @@ if submit:
         st.download_button(label="📥 Baixar Faturamento (ZIP)", data=zip_buffer.getvalue(), file_name=f"Faturamento_NF{nf_ebm}.zip", mime="application/zip")
 
     except Exception as e:
-        st.error(f"Ocorreu um erro ao gerar a planilha. Verifique os dados fornecidos e se as planilhas modelos estão corretas.")
+        st.error(f"Ocorreu um erro ao gerar os documentos. Verifique as planilhas enviadas.")
