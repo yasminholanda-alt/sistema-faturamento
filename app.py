@@ -6,7 +6,7 @@ import zipfile
 st.set_page_config(page_title="Faturamento EBM Quintto", layout="centered")
 
 st.title("📊 Gerador de Faturamento - EBM Quintto")
-st.write("Preencha os dados da Nota Fiscal abaixo para gerar os documentos de faturamento.")
+st.write("Preencha os dados da Nota Fiscal abaixo para gerar as 3 planilhas de faturamento automaticamente.")
 
 with st.form("faturamento_form"):
     col1, col2 = st.columns(2)
@@ -37,6 +37,7 @@ with st.form("faturamento_form"):
 
 if submit:
     try:
+        # Cálculos do faturamento
         honorarios_ebm = valor_bruto - valor_fornecedor
         
         if simples_nacional == "SIM":
@@ -58,6 +59,29 @@ if submit:
 
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, "w") as zf:
+            
+            # 1. PLANILHA CARTA
+            wb_carta = openpyxl.load_workbook("01_CARTA.xlsx")
+            sheet_carta = wb_carta.active
+            sheet_carta["B1"], sheet_carta["B2"], sheet_carta["B3"] = empenho, nup, nf_ebm
+            sheet_carta["B4"], sheet_carta["B5"], sheet_carta["B6"] = data_ebm, valor_bruto, descricao
+            
+            excel_carta = io.BytesIO()
+            wb_carta.save(excel_carta)
+            zf.writestr(f"01_CARTA_NF{nf_ebm}.xlsx", excel_carta.getvalue())
+
+            # 2. PLANILHA FINANCEIRA
+            wb_fin = openpyxl.load_workbook("02_PLANILHA FINANCEIRA.xlsx")
+            sheet_fin = wb_fin.active
+            sheet_fin["B1"], sheet_fin["B2"], sheet_fin["B3"] = empenho, nup, tipo
+            sheet_fin["B4"], sheet_fin["B5"], sheet_fin["B6"] = fornecedor, cnpj_forn, nf_forn
+            sheet_fin["B7"], sheet_fin["B8"], sheet_fin["B9"] = valor_bruto, valor_fornecedor, honorarios_ebm
+            
+            excel_fin = io.BytesIO()
+            wb_fin.save(excel_fin)
+            zf.writestr(f"02_PLANILHA_FINANCEIRA_NF{nf_ebm}.xlsx", excel_fin.getvalue())
+
+            # 3. DADOS PARA LIQUIDAR
             wb_liq = openpyxl.load_workbook("17_PLANILHA DADOS PARA LIQUIDAR.xlsx")
             sheet_liq = wb_liq.active
             sheet_liq["B1"], sheet_liq["B2"], sheet_liq["B3"] = empenho, nup, valor_bruto
@@ -71,8 +95,8 @@ if submit:
             wb_liq.save(excel_liq)
             zf.writestr(f"03_DADOS_LIQUIDAR_NF{nf_ebm}.xlsx", excel_liq.getvalue())
             
-        st.success("Tudo pronto! Seus arquivos foram gerados com sucesso.")
+        st.success("Tudo pronto! As 3 planilhas foram geradas com sucesso.")
         st.download_button(label="📥 Baixar Faturamento (ZIP)", data=zip_buffer.getvalue(), file_name=f"Faturamento_NF{nf_ebm}.zip", mime="application/zip")
 
     except Exception as e:
-        st.error(f"Ocorreu um erro ao gerar os documentos. Verifique as planilhas enviadas.")
+        st.error(f"Ocorreu um erro ao gerar os documentos: {e}")
