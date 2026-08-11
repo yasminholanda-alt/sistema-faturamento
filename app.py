@@ -11,7 +11,7 @@ from reportlab.lib.units import cm
 st.set_page_config(page_title="Gerador de Faturamento EBM", layout="centered")
 
 st.title("📊 Gerador de Faturamento - EBM Quintto")
-st.write("Preencha as informações abaixo para gerar a Carta (Retrato) e os Controles (Paisagem).")
+st.write("Preencha as informações abaixo para gerar os 3 relatórios com Logo e Assinatura.")
 
 with st.form("faturamento_form"):
     col1, col2 = st.columns(2)
@@ -68,11 +68,11 @@ if submit:
         total_iss = ret_iss_ebm + ret_iss_forn
         total_irrf = ret_irrf_ebm + ret_irrf_forn
 
-        # --- ESTILOS BASE ---
+        # --- ESTILOS ---
         styles = getSampleStyleSheet()
         normal = ParagraphStyle('NormalCustom', parent=styles['Normal'], fontName='Helvetica', fontSize=9, leading=12)
         bold = ParagraphStyle('BoldCustom', parent=normal, fontName='Helvetica-Bold')
-        title = ParagraphStyle('TitleCustom', parent=normal, fontName='Helvetica-Bold', fontSize=12, leading=15, alignment=1)
+        title = ParagraphStyle('TitleCustom', parent=normal, fontName='Helvetica-Bold', fontSize=12, leading=15, alignment=0)
         
         cell_header = ParagraphStyle('HeaderCell', fontName='Helvetica-Bold', fontSize=8, leading=10, alignment=1, textColor=colors.whitesmoke)
         cell_body = ParagraphStyle('BodyCell', fontName='Helvetica', fontSize=8, leading=10, alignment=1)
@@ -86,15 +86,22 @@ if submit:
         # ==========================================
         def gerar_carta_pdf():
             buffer = io.BytesIO()
-            doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=2*cm, leftMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
+            doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=2*cm, leftMargin=2*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
             story = []
 
+            # Logo no topo
+            try:
+                story.append(Image("logo da ebm.jpeg", width=4*cm, height=1.3*cm))
+                story.append(Spacer(1, 15))
+            except:
+                pass
+
             story.append(Paragraph(f"Fortaleza, {data_ebm}.", normal))
-            story.append(Spacer(1, 15))
+            story.append(Spacer(1, 12))
             story.append(Paragraph("<b>À<br/>Casa Civil</b><br/>Att. Dra. Joelise Collyer Teixeira de Paula<br/>Secretária Executiva de Comunicação, Publicidade e Eventos.", normal))
-            story.append(Spacer(1, 15))
+            story.append(Spacer(1, 12))
             story.append(Paragraph(f"<b>Ref. Empenho nº {empenho}</b>", bold))
-            story.append(Spacer(1, 15))
+            story.append(Spacer(1, 12))
             story.append(Paragraph("Prezada Secretária,", normal))
             story.append(Spacer(1, 10))
 
@@ -108,7 +115,7 @@ if submit:
             story.append(Paragraph(texto, normal))
             story.append(Spacer(1, 15))
             story.append(Paragraph("Através do contrato nº 177/2024.<br/>Na certeza de contarmos com o parecer favorável.<br/>Subscrevemo-nos,", normal))
-            story.append(Spacer(1, 25))
+            story.append(Spacer(1, 20))
 
             try:
                 story.append(Image("assinatura da gabriela martins.jpeg", width=4*cm, height=1.8*cm))
@@ -127,7 +134,19 @@ if submit:
             doc = SimpleDocTemplate(buffer, pagesize=landscape(letter), rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
             story = []
 
-            story.append(Paragraph("<b>EBM QUINTTO COMUNICAÇÃO LTDA - CONTROLE DE REPASSE (CASA CIVIL)</b>", title))
+            # Cabeçalho com Logo
+            try:
+                img_logo = Image("logo da ebm.jpeg", width=4*cm, height=1.3*cm)
+                p_title = Paragraph("<b>EBM QUINTTO COMUNICAÇÃO LTDA<br/>CONTROLE DE REPASSE (CASA CIVIL)</b>", title)
+                header_table = Table([[img_logo, p_title]], colWidths=[4.5*cm, 20.5*cm])
+                header_table.setStyle(TableStyle([
+                    ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                    ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+                ]))
+                story.append(header_table)
+            except:
+                story.append(Paragraph("<b>EBM QUINTTO COMUNICAÇÃO LTDA - CONTROLE DE REPASSE (CASA CIVIL)</b>", title))
+
             story.append(Spacer(1, 10))
 
             info_text = f"""
@@ -150,7 +169,6 @@ if submit:
                 p_cell(f"R$ {valor_liq_ebm:,.2f}"), p_cell(f"R$ {valor_liq_total:,.2f}", is_bold=True)
             ]
 
-            # Largura expandida para preencher os ~25 cm úteis do modo Paisagem
             col_widths = [2.0*cm, 1.8*cm, 4.2*cm, 1.8*cm, 2.3*cm, 2.0*cm, 2.3*cm, 2.3*cm, 2.0*cm, 2.3*cm, 2.5*cm]
             t = Table([headers, row], colWidths=col_widths)
             t.setStyle(TableStyle([
@@ -162,11 +180,11 @@ if submit:
                 ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#1F497D')),
             ]))
             story.append(t)
-            story.append(Spacer(1, 20))
+            story.append(Spacer(1, 15))
 
             story.append(Paragraph(f"<b>VALOR BRUTO TOTAL DA NF:</b> R$ {valor_bruto:,.2f}", bold))
             story.append(Paragraph(f"<b>VALOR LÍQUIDO A RECEBER:</b> R$ {valor_liq_total:,.2f}", bold))
-            story.append(Spacer(1, 20))
+            story.append(Spacer(1, 15))
 
             try:
                 story.append(Image("assinatura da gabriela martins.jpeg", width=4*cm, height=1.8*cm))
@@ -185,8 +203,20 @@ if submit:
             doc = SimpleDocTemplate(buffer, pagesize=landscape(letter), rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
             story = []
 
-            story.append(Paragraph("<b>DADOS PARA LIQUIDAÇÃO DE PROCESSO</b>", title))
-            story.append(Spacer(1, 15))
+            # Cabeçalho com Logo
+            try:
+                img_logo = Image("logo da ebm.jpeg", width=4*cm, height=1.3*cm)
+                p_title = Paragraph("<b>DADOS PARA LIQUIDAÇÃO DE PROCESSO</b>", title)
+                header_table = Table([[img_logo, p_title]], colWidths=[4.5*cm, 20.5*cm])
+                header_table.setStyle(TableStyle([
+                    ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                    ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+                ]))
+                story.append(header_table)
+            except:
+                story.append(Paragraph("<b>DADOS PARA LIQUIDAÇÃO DE PROCESSO</b>", title))
+
+            story.append(Spacer(1, 12))
 
             p_res_head = lambda txt: Paragraph(f"<b>{txt}</b>", ParagraphStyle('RHead', parent=normal, fontSize=9, fontName='Helvetica-Bold'))
             p_res_val = lambda txt: Paragraph(str(txt), ParagraphStyle('RVal', parent=normal, fontSize=9))
@@ -207,7 +237,7 @@ if submit:
                 ('BOTTOMPADDING', (0,0), (-1,-1), 5),
             ]))
             story.append(t_resumo)
-            story.append(Spacer(1, 20))
+            story.append(Spacer(1, 15))
 
             detalhe_headers = [
                 p_head("RAZÃO SOCIAL / AGÊNCIA"), p_head("NF"), p_head("EMISSÃO"), p_head("CNPJ"), 
@@ -236,6 +266,14 @@ if submit:
                 ('BOTTOMPADDING', (0,0), (-1,-1), 6),
             ]))
             story.append(t_detalhe)
+            story.append(Spacer(1, 15))
+
+            # Assinatura adicionada no arquivo 03
+            try:
+                story.append(Image("assinatura da gabriela martins.jpeg", width=4*cm, height=1.8*cm))
+            except:
+                pass
+            story.append(Paragraph("<b>Gabriela Martins</b><br/>Gerente Financeira - EBM QUINTTO", normal))
 
             doc.build(story)
             return buffer.getvalue()
@@ -247,7 +285,7 @@ if submit:
             zf.writestr(f"02_PLANILHA_FINANCEIRA_NF{nf_ebm}.pdf", gerar_financeira_pdf())
             zf.writestr(f"03_DADOS_LIQUIDAR_NF{nf_ebm}.pdf", gerar_liquidar_pdf())
 
-        st.success("Tudo pronto! A Carta está em Retrato e os 2 Controles em Paisagem.")
+        st.success("Tudo pronto! Logo aplicada em todos os 3 PDFs e Assinatura incluída no arquivo 03.")
         st.download_button(
             label="📥 Baixar 3 PDFs (ZIP)",
             data=zip_buffer.getvalue(),
