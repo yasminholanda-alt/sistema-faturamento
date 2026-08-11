@@ -1,5 +1,2 @@
-Plaintext
 streamlit
 openpyxl
-weasyprint
-pandas
