@@ -13,6 +13,9 @@ st.set_page_config(page_title="Gerador de Faturamento EBM", layout="centered")
 st.title("📊 Gerador de Faturamento - EBM Quintto")
 st.write("Preencha as informações abaixo para gerar os 3 relatórios em PDF.")
 
+# Nome oficial da nova logo enviada
+NOME_LOGO = "logo ebmquintto preta BG transparente.png"
+
 with st.form("faturamento_form"):
     col1, col2 = st.columns(2)
     tipo_servico = col1.selectbox("Tipo de Serviço", ["Mídia", "Produção", "Custos Internos"])
@@ -95,7 +98,7 @@ if submit:
             story = []
 
             try:
-                story.append(Image("logo da ebm.jpeg", width=3.5*cm, height=1.2*cm))
+                story.append(Image(NOME_LOGO, width=3.8*cm, height=1.1*cm))
                 story.append(Spacer(1, 15))
             except:
                 pass
@@ -138,7 +141,7 @@ if submit:
             doc = SimpleDocTemplate(buffer, pagesize=landscape(letter), rightMargin=1*cm, leftMargin=1*cm, topMargin=1*cm, bottomMargin=1*cm)
             story = []
 
-            # Cabeçalho com Logo e Título Centralizado
+            # Cabeçalho com Logo Nova e Título Centralizado
             p_header_text = Paragraph(f"""
             <b>CONTRATO 177/2024</b><br/>
             <b>CONTROLE DE REPASSE - CASA CIVIL</b><br/>
@@ -148,7 +151,7 @@ if submit:
             """, title_center)
 
             try:
-                img_logo = Image("logo da ebm.jpeg", width=3.2*cm, height=1.1*cm)
+                img_logo = Image(NOME_LOGO, width=3.8*cm, height=1.1*cm)
                 h_table = Table([[img_logo, p_header_text]], colWidths=[4*cm, 21.5*cm])
                 h_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('ALIGN', (0,0), (0,0), 'LEFT')]))
                 story.append(h_table)
@@ -157,10 +160,8 @@ if submit:
 
             story.append(Spacer(1, 10))
 
-            # Faixa superior de descrição do serviço
             desc_text = Paragraph(f"<b>{numero_doc} - PAGTO REF. {descricao} - {fornecedor if tipo_servico != 'Custos Internos' else 'EBM QUINTTO'}</b>", cell_head)
             
-            # Tabela Controle de Repasse
             headers = [
                 p_h("N° EMP"), p_h("NF EBM"), p_h("FORNECEDOR"), p_h("NF FORN."), 
                 p_h("VALOR<br/>FORNECEDOR"), p_h("RET. IMP."), p_h("VALOR LÍQ. FORN."), 
@@ -203,7 +204,6 @@ if submit:
             story.append(t)
             story.append(Spacer(1, 15))
 
-            # Assinatura no canto inferior direito
             try:
                 img_ass = Image("assinatura da gabriela martins.jpeg", width=3.5*cm, height=1.4*cm)
                 p_ass_txt = Paragraph("<b>Gabriela S. Martins</b><br/><font size=5>EBM QUINTTO COMUNICAÇÃO LTDA<br/>Gabriela Martins - Gerente Financeira<br/>gabriela.martins@ebmquintto.com.br</font>", cell_body)
@@ -226,7 +226,6 @@ if submit:
             doc = SimpleDocTemplate(buffer, pagesize=landscape(letter), rightMargin=1*cm, leftMargin=1*cm, topMargin=1*cm, bottomMargin=1*cm)
             story = []
 
-            # Tabela Resumo Canto Superior Esquerdo
             p_lh = lambda txt: Paragraph(f"<b>{txt}</b>", ParagraphStyle('LH', parent=normal, fontSize=7, fontName='Helvetica-Bold'))
             p_lv = lambda txt: Paragraph(str(txt), ParagraphStyle('LV', parent=normal, fontSize=7, alignment=1))
 
@@ -248,7 +247,6 @@ if submit:
                 ('BOTTOMPADDING', (0,0), (-1,-1), 2),
             ]))
             
-            # Alinha tabela de resumo à esquerda
             layout_top = Table([[t_res, '']], colWidths=[8*cm, 17.5*cm])
             layout_top.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP')]))
             story.append(layout_top)
@@ -287,7 +285,6 @@ if submit:
             story.append(t_fo)
             story.append(Spacer(1, 15))
 
-            # Assinatura no canto inferior esquerdo
             try:
                 img_ass = Image("assinatura da gabriela martins.jpeg", width=3.5*cm, height=1.4*cm)
                 p_ass_txt = Paragraph("<b>Gabriela S. Martins</b><br/><font size=5>EBM QUINTTO COMUNICAÇÃO LTDA<br/>Gabriela Martins - Gerente Financeira<br/>gabriela.martins@ebmquintto.com.br</font>", cell_body)
@@ -309,7 +306,7 @@ if submit:
             zf.writestr(f"02_PLANILHA_FINANCEIRA_NF{nf_ebm}.pdf", gerar_financeira_pdf())
             zf.writestr(f"03_DADOS_LIQUIDAR_NF{nf_ebm}.pdf", gerar_liquidar_pdf())
 
-        st.success("Tudo pronto! Layouts idênticos aos modelos gerados em PDF.")
+        st.success("Tudo pronto! Relatórios gerados com a nova logo HD com fundo transparente.")
         st.download_button(
             label="📥 Baixar 3 PDFs (ZIP)",
             data=zip_buffer.getvalue(),
