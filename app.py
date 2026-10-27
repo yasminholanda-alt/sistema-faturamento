@@ -16,25 +16,46 @@ st.write("Preencha as informações abaixo para gerar os 3 relatórios em PDF.")
 # Nome oficial da nova logo enviada
 NOME_LOGO = "logo ebmquintto preta BG transparente.png"
 
+# ==========================================
+# CONTRATOS DO CLIENTE (Casa Civil - Governo do Estado do Ceará)
+# Para incluir ou alterar um contrato, edite apenas este bloco.
+# ==========================================
+DESTINATARIO_PADRAO = {
+    "orgao": "Casa Civil",
+    "att": "Dra. Joelise Collyer Teixeira de Paula",
+    "cargo": "Secretária Executiva de Comunicação, Publicidade e Eventos.",
+}
+
+CONTRATOS = {
+    "C7": {"numero": "177/2024", **DESTINATARIO_PADRAO},
+    "C9": {"numero": "125/2023", **DESTINATARIO_PADRAO},
+    "CC": {"numero": "125/2023", **DESTINATARIO_PADRAO},  # confirmar número do CC
+}
+
 with st.form("faturamento_form"):
-    col1, col2 = st.columns(2)
+    col0, col1, col2 = st.columns(3)
+    contrato_sel = col0.selectbox(
+        "Contrato",
+        list(CONTRATOS.keys()),
+        format_func=lambda k: f"{k} - {CONTRATOS[k]['numero']}",
+    )
     tipo_servico = col1.selectbox("Tipo de Serviço", ["Mídia", "Produção", "Custos Internos"])
     empenho = col2.text_input("Nº do Empenho")
-    
+
     nup = st.text_input("NUP (Ex: 30001.008502/2026-87)")
     descricao = st.text_area("Descrição do Serviço (Texto da NF)")
-    
+
     col3, col4 = st.columns(2)
     nf_ebm = col3.text_input("Nº NF EBM")
     data_ebm = col4.text_input("Data Emissão EBM (DD/MM/AAAA)")
-    
+
     fornecedor = st.text_input("Razão Social do Fornecedor / Veículo")
     cnpj_forn = st.text_input("CNPJ do Fornecedor")
-    
+
     col5, col6 = st.columns(2)
     nf_forn = col5.text_input("Nº NF Fornecedor")
     data_forn = col6.text_input("Data Emissão Fornecedor (DD/MM/AAAA)")
-    
+
     col7, col8 = st.columns(2)
     numero_doc = col7.text_input("Nº do Documento (OC / PI / AP / PP / Plano)")
     simples_nacional = col8.radio("Fornecedor Optante do Simples Nacional?", ["SIM", "NÃO"])
@@ -42,7 +63,7 @@ with st.form("faturamento_form"):
     col9, col10 = st.columns(2)
     valor_bruto = col9.number_input("Valor Bruto Total da NF (R$)", min_value=0.0, step=0.01)
     valor_fornecedor = col10.number_input("Valor Repassado ao Fornecedor (R$)", min_value=0.0, step=0.01)
-    
+
     submit = st.form_submit_button("Gerar 3 PDFs")
 
 # Helper para formatação de moeda brasileira (Ex: 1.440,00)
@@ -51,9 +72,13 @@ def fmt(val):
 
 if submit:
     try:
+        # --- DADOS DO CONTRATO ESCOLHIDO ---
+        contrato = CONTRATOS[contrato_sel]
+        numero_contrato = contrato["numero"]
+
         # --- CÁLCULOS FINANCEIROS ---
         honorarios_ebm = valor_bruto - valor_fornecedor
-        
+
         # Impostos Fornecedor
         if simples_nacional == "SIM":
             ret_iss_forn = 0.0
@@ -61,16 +86,16 @@ if submit:
         else:
             ret_iss_forn = valor_fornecedor * 0.02
             ret_irrf_forn = valor_fornecedor * 0.048
-            
+
         ret_imp_forn = ret_iss_forn + ret_irrf_forn
         valor_liq_forn = valor_fornecedor - ret_imp_forn
-        
+
         # Impostos EBM
         ret_iss_ebm = honorarios_ebm * 0.05
         ret_irrf_ebm = honorarios_ebm * 0.048
         ret_imp_ebm = ret_iss_ebm + ret_irrf_ebm
         valor_liq_ebm = honorarios_ebm - ret_imp_ebm
-        
+
         valor_liq_total = valor_liq_forn + valor_liq_ebm
         total_iss = ret_iss_ebm + ret_iss_forn
         total_irrf = ret_irrf_ebm + ret_irrf_forn
@@ -105,7 +130,7 @@ if submit:
 
             story.append(Paragraph(f"Fortaleza, {data_ebm}.", normal))
             story.append(Spacer(1, 12))
-            story.append(Paragraph("<b>À<br/>Casa Civil</b><br/>Att. Dra. Joelise Collyer Teixeira de Paula<br/>Secretária Executiva de Comunicação, Publicidade e Eventos.", normal))
+            story.append(Paragraph(f"<b>À<br/>{contrato['orgao']}</b><br/>Att. {contrato['att']}<br/>{contrato['cargo']}", normal))
             story.append(Spacer(1, 12))
             story.append(Paragraph(f"<b>Ref. Empenho nº {empenho}</b>", bold))
             story.append(Spacer(1, 12))
@@ -121,7 +146,7 @@ if submit:
 
             story.append(Paragraph(texto, normal))
             story.append(Spacer(1, 15))
-            story.append(Paragraph("Através do contrato nº 177/2024.<br/>Na certeza de contarmos com o parecer favorável.<br/>Subscrevemo-nos,", normal))
+            story.append(Paragraph(f"Através do contrato nº {numero_contrato}.<br/>Na certeza de contarmos com o parecer favorável.<br/>Subscrevemo-nos,", normal))
             story.append(Spacer(1, 20))
 
             try:
@@ -129,7 +154,7 @@ if submit:
             except:
                 pass
             story.append(Paragraph("<b>EBM QUINTTO COMUNICAÇÃO LTDA</b><br/>Gabriela Martins - Gerente Financeira<br/>gabriela.martins@ebmquintto.com.br", normal))
-            
+
             doc.build(story)
             return buffer.getvalue()
 
@@ -143,8 +168,8 @@ if submit:
 
             # Cabeçalho com Logo Nova e Título Centralizado
             p_header_text = Paragraph(f"""
-            <b>CONTRATO 177/2024</b><br/>
-            <b>CONTROLE DE REPASSE - CASA CIVIL</b><br/>
+            <b>CONTRATO {numero_contrato}</b><br/>
+            <b>CONTROLE DE REPASSE - {contrato['orgao'].upper()}</b><br/>
             <b>Nº EMPENHO {empenho}</b><br/>
             <b>NF EBM QUINTTO Nº {nf_ebm}</b><br/>
             <b>.:. EMISSÃO {data_ebm} .:. RECEBIMENTO // .:.</b>
@@ -161,11 +186,11 @@ if submit:
             story.append(Spacer(1, 10))
 
             desc_text = Paragraph(f"<b>{numero_doc} - PAGTO REF. {descricao} - {fornecedor if tipo_servico != 'Custos Internos' else 'EBM QUINTTO'}</b>", cell_head)
-            
+
             headers = [
-                p_h("N° EMP"), p_h("NF EBM"), p_h("FORNECEDOR"), p_h("NF FORN."), 
-                p_h("VALOR<br/>FORNECEDOR"), p_h("RET. IMP."), p_h("VALOR LÍQ. FORN."), 
-                p_h("HONORÁRIOS EBM"), p_h("SERVIÇOS INTERNOS EBM"), p_h("RET. IMP."), 
+                p_h("N° EMP"), p_h("NF EBM"), p_h("FORNECEDOR"), p_h("NF FORN."),
+                p_h("VALOR<br/>FORNECEDOR"), p_h("RET. IMP."), p_h("VALOR LÍQ. FORN."),
+                p_h("HONORÁRIOS EBM"), p_h("SERVIÇOS INTERNOS EBM"), p_h("RET. IMP."),
                 p_h("VALOR LÍQ. EBM"), p_h("VALOR LÍQ NF"), p_h("DATA REPASSE")
             ]
 
@@ -189,7 +214,7 @@ if submit:
             ]
 
             col_w = [1.4*cm, 1.4*cm, 4.5*cm, 1.4*cm, 2.2*cm, 1.6*cm, 2.2*cm, 2.1*cm, 2.1*cm, 1.6*cm, 2.1*cm, 2.2*cm, 1.8*cm]
-            
+
             table_data = [[desc_text] + ['']*12, headers, row_data, row_total]
             t = Table(table_data, colWidths=col_w)
             t.setStyle(TableStyle([
@@ -209,7 +234,7 @@ if submit:
                 p_ass_txt = Paragraph("<b>Gabriela S. Martins</b><br/><font size=5>EBM QUINTTO COMUNICAÇÃO LTDA<br/>Gabriela Martins - Gerente Financeira<br/>gabriela.martins@ebmquintto.com.br</font>", cell_body)
                 ass_box = Table([[img_ass], [p_ass_txt]], colWidths=[4.5*cm])
                 ass_box.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER')]))
-                
+
                 layout_ass = Table([['', ass_box]], colWidths=[21*cm, 4.5*cm])
                 story.append(layout_ass)
             except:
@@ -246,7 +271,7 @@ if submit:
                 ('TOPPADDING', (0,0), (-1,-1), 2),
                 ('BOTTOMPADDING', (0,0), (-1,-1), 2),
             ]))
-            
+
             layout_top = Table([[t_res, '']], colWidths=[8*cm, 17.5*cm])
             layout_top.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP')]))
             story.append(layout_top)
@@ -290,7 +315,7 @@ if submit:
                 p_ass_txt = Paragraph("<b>Gabriela S. Martins</b><br/><font size=5>EBM QUINTTO COMUNICAÇÃO LTDA<br/>Gabriela Martins - Gerente Financeira<br/>gabriela.martins@ebmquintto.com.br</font>", cell_body)
                 ass_box = Table([[img_ass], [p_ass_txt]], colWidths=[4.5*cm])
                 ass_box.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'LEFT')]))
-                
+
                 layout_ass = Table([[ass_box, '']], colWidths=[4.5*cm, 21*cm])
                 story.append(layout_ass)
             except:
@@ -306,7 +331,7 @@ if submit:
             zf.writestr(f"02_PLANILHA_FINANCEIRA_NF{nf_ebm}.pdf", gerar_financeira_pdf())
             zf.writestr(f"03_DADOS_LIQUIDAR_NF{nf_ebm}.pdf", gerar_liquidar_pdf())
 
-        st.success("Tudo pronto! Relatórios gerados com a nova logo HD com fundo transparente.")
+        st.success(f"Tudo pronto! Relatórios gerados para o contrato {contrato_sel} ({numero_contrato}).")
         st.download_button(
             label="📥 Baixar 3 PDFs (ZIP)",
             data=zip_buffer.getvalue(),
