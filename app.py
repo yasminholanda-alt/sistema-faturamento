@@ -1,4 +1,4 @@
-import streamlit as st
+import streamlit as st import estilo
 import io
 import zipfile
 
@@ -8,10 +8,12 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
 
-st.set_page_config(page_title="Gerador de Faturamento EBM", layout="centered")
-
-st.title("📊 Gerador de Faturamento Casa Civil - EBM Quintto")
-st.write("Preencha as informações abaixo para gerar os 3 relatórios em PDF.")
+st.set_page_config(page_title="Gerador de Faturamento Casa Civil | EBM Quintto", page_icon="🟡", layout="centered")
+estilo.aplicar_tema()
+estilo.cabecalho(
+    "Gerador de Faturamento",
+    "Preencha os dados abaixo para gerar a carta, a planilha financeira e os dados para liquidar.",
+)
 
 # Nome oficial da nova logo enviada
 NOME_LOGO = "logo ebmquintto preta BG transparente.png"
@@ -338,6 +340,7 @@ if submit:
             file_name=f"Faturamento_PDFs_NF{nf_ebm}.zip",
             mime="application/zip"
         )
+        estilo.rodape()
 
     except Exception as e:
         st.error(f"Ocorreu um erro ao gerar os relatórios em PDF: {e}")
