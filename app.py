@@ -1,8 +1,8 @@
 import os
 import io
-import zipfile
 
 import streamlit as st
+from pypdf import PdfWriter
 from reportlab.lib.pagesizes import letter, landscape
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
@@ -28,11 +28,11 @@ if TEM_ESTILO:
     estilo.aplicar_tema()
     estilo.cabecalho(
         "Gerador de Faturamento - Casa Civil",
-        "Preencha os dados abaixo para gerar a carta, a planilha financeira e os dados para liquidar.",
+        "Preencha os dados abaixo para gerar o dossiê completo de faturamento em PDF único.",
     )
 else:
     st.title("Gerador de Faturamento - Casa Civil")
-    st.caption("Preencha os dados abaixo para gerar a carta, a planilha financeira e os dados para liquidar.")
+    st.caption("Preencha os dados abaixo para gerar o dossiê completo de faturamento em PDF único.")
 
 NOME_LOGO = "logo ebmquintto preta BG transparente.png"
 NOME_ASSINATURA = "assinatura da gabriela martins.jpeg"
@@ -90,7 +90,7 @@ with st.form("faturamento_form"):
     valor_bruto = col9.number_input("Valor Bruto Total da NF (R$)", min_value=0.0, step=0.01)
     valor_fornecedor = col10.number_input("Valor Repassado ao Fornecedor (R$)", min_value=0.0, step=0.01)
 
-    submit = st.form_submit_button("Gerar 3 PDFs", use_container_width=True)
+    submit = st.form_submit_button("Gerar PDF Único", use_container_width=True)
 
 # ==========================================
 # PROCESSAMENTO DOS DOCUMENTOS
@@ -139,7 +139,7 @@ if submit:
             return Paragraph(str(txt), cell_body_bold if b else cell_body)
 
         # ------------------------------------------
-        # 1. CARTA DE ENCAMINHAMENTO
+        # 1. CARTA DE ENCAMINHAMENTO (RETRATO)
         # ------------------------------------------
         def gerar_carta_pdf():
             buffer = io.BytesIO()
@@ -183,10 +183,11 @@ if submit:
             story.append(Paragraph("<b>EBM QUINTTO COMUNICAÇÃO LTDA</b><br/>Gabriela Martins - Gerente Financeira<br/>gabriela.martins@ebmquintto.com.br", normal))
 
             doc.build(story)
-            return buffer.getvalue()
+            buffer.seek(0)
+            return buffer
 
         # ------------------------------------------
-        # 2. PLANILHA FINANCEIRA
+        # 2. PLANILHA FINANCEIRA (PAISAGEM)
         # ------------------------------------------
         def gerar_financeira_pdf():
             buffer = io.BytesIO()
@@ -276,10 +277,11 @@ if submit:
                 story.append(layout_ass)
 
             doc.build(story)
-            return buffer.getvalue()
+            buffer.seek(0)
+            return buffer
 
         # ------------------------------------------
-        # 3. DADOS PARA LIQUIDAR
+        # 3. DADOS PARA LIQUIDAR (PAISAGEM)
         # ------------------------------------------
         def gerar_liquidar_pdf():
             buffer = io.BytesIO()
@@ -366,21 +368,31 @@ if submit:
                 story.append(layout_ass)
 
             doc.build(story)
-            return buffer.getvalue()
+            buffer.seek(0)
+            return buffer
 
-        # Compactação em ZIP
-        zip_buffer = io.BytesIO()
-        with zipfile.ZipFile(zip_buffer, "w") as zf:
-            zf.writestr(f"01_CARTA_NF{nf_ebm}.pdf", gerar_carta_pdf())
-            zf.writestr(f"02_PLANILHA_FINANCEIRA_NF{nf_ebm}.pdf", gerar_financeira_pdf())
-            zf.writestr(f"03_DADOS_LIQUIDAR_NF{nf_ebm}.pdf", gerar_liquidar_pdf())
+        # ------------------------------------------
+        # MESCLAGEM DOS TRÊS DOCUMENTOS EM PDF ÚNICO
+        # ------------------------------------------
+        pdf_carta = gerar_carta_pdf()
+        pdf_fin = gerar_financeira_pdf()
+        pdf_liq = gerar_liquidar_pdf()
 
-        st.success(f"Tudo pronto! Relatórios gerados para o contrato {contrato_sel} ({numero_contrato}).")
+        merger = PdfWriter()
+        merger.append(pdf_carta)
+        merger.append(pdf_fin)
+        merger.append(pdf_liq)
+
+        pdf_final_buffer = io.BytesIO()
+        merger.write(pdf_final_buffer)
+        pdf_final_buffer.seek(0)
+
+        st.success(f"Dossiê gerado com sucesso para o contrato {contrato_sel} ({numero_contrato})!")
         st.download_button(
-            label="📥 Baixar 3 PDFs (ZIP)",
-            data=zip_buffer.getvalue(),
-            file_name=f"Faturamento_PDFs_NF{nf_ebm}.zip",
-            mime="application/zip",
+            label="📄 Baixar Dossiê Completo (PDF Único)",
+            data=pdf_final_buffer.getvalue(),
+            file_name=f"Faturamento_CasaCivil_NF{nf_ebm}.pdf",
+            mime="application/pdf",
             use_container_width=True
         )
 
@@ -388,4 +400,4 @@ if submit:
             estilo.rodape()
 
     except Exception as e:
-        st.error(f"Ocorreu um erro ao gerar os relatórios em PDF: {e}")
+        st.error(f"Ocorreu um erro ao gerar o PDF: {e}")
