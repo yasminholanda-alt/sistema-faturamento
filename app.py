@@ -110,37 +110,37 @@ with st.form("faturamento_form"):
         max_value=10.0,
         value=2.0 if simples_nacional == "NÃO" else 0.0,
         step=0.5,
-        help="Alíquota de ISS do município do fornecedor (retido apenas se NÃO for Simples Nacional)."
+        help="Alíquota de ISS do município do fornecedor (retido na fonte apenas se NÃO for Simples Nacional)."
     )
 
     col11, col12 = st.columns(2)
-    valor_bruto = col11.number_input(
-        "Valor Bruto Total da NF (R$)", 
+    valor_fornecedor_input = col11.number_input(
+        "Valor Bruto da Nota do Fornecedor / Veículo (R$)", 
         min_value=0.0, 
         step=0.01,
-        help="Valor total da NF emitida para o cliente."
+        help="Valor da NF do fornecedor/veículo sobre o qual os honorários serão calculados."
     )
 
-    valor_fornecedor_input = col12.number_input(
-        "Valor Líquido (Bruto da Nota do Fornecedor / Veículo)", 
-        min_value=0.0, 
-        step=0.01,
-        help="Valor da NF do fornecedor/terceirizado. Deixe 0,00 para calcular subtraindo a comissão do valor bruto."
-    )
-
-    col13, col14 = st.columns(2)
-    valor_liq_ebm_input = col13.number_input(
-        "Valor Líquido da NF da EBM (Opcional - R$)", 
-        min_value=0.0, 
-        step=0.01,
-        help="Deixe 0,00 para apuração automática."
-    )
-
-    valor_custo_interno = col14.number_input(
+    valor_custo_interno = col12.number_input(
         "Valor de Custos Internos (R$)", 
         min_value=0.0, 
         step=0.01,
-        help="Informe caso existam custos internos da EBM no processo."
+        help="Informe o valor caso haja serviços internos agregados ao processo."
+    )
+
+    col13, col14 = st.columns(2)
+    valor_bruto_input = col13.number_input(
+        "Valor Bruto Total da NF da EBM (Opcional - R$)", 
+        min_value=0.0, 
+        step=0.01,
+        help="Deixe 0,00 para o sistema calcular automaticamente somando Fornecedor + Honorários + Custos Internos."
+    )
+
+    valor_honorarios_manual = col14.number_input(
+        "Honorários EBM Manuais (Opcional - R$)", 
+        min_value=0.0, 
+        step=0.01,
+        help="Deixe 0,00 para calcular automático (18,75% Mídia ou 8% Produção sobre o fornecedor)."
     )
 
     submit = st.form_submit_button("Gerar PDF Único", use_container_width=True)
@@ -159,44 +159,42 @@ if submit:
         is_custos_puros = tipo_servico == "Custos Internos"
 
         # ----------------------------------------------------
-        # DECOMPOSIÇÃO DIMINUINDO OS VALORES
+        # CÁLCULO DOS HONORÁRIOS EM CIMA DO FORNECEDOR
         # ----------------------------------------------------
         if is_custos_puros:
             valor_fornecedor = 0.0
-            custos_internos_final = valor_custo_interno if valor_custo_interno > 0 else valor_bruto
+            custos_internos_final = valor_custo_interno if valor_custo_interno > 0 else valor_bruto_input
             honorarios_ebm = 0.0
             base_ebm = custos_internos_final
+            valor_bruto = custos_internos_final
         else:
+            valor_fornecedor = valor_fornecedor_input
             custos_internos_final = valor_custo_interno
-            saldo_disponivel = max(0.0, valor_bruto - custos_internos_final)
 
-            # Se o usuário digitou o valor do fornecedor, subtrai para achar os honorários
-            if valor_fornecedor_input > 0:
-                valor_fornecedor = valor_fornecedor_input
-                honorarios_ebm = max(0.0, saldo_disponivel - valor_fornecedor)
+            # Se informou honorários manuais, usa o valor; caso contrário, aplica a porcentagem sobre o fornecedor
+            if valor_honorarios_manual > 0:
+                honorarios_ebm = valor_honorarios_manual
             else:
-                # Subtrai a comissão/honorários do total para encontrar o repasse ao fornecedor
                 if tipo_servico == "Mídia":
-                    honorarios_ebm = saldo_disponivel * 0.1875
-                    valor_fornecedor = saldo_disponivel - honorarios_ebm
+                    honorarios_ebm = valor_fornecedor * 0.1875  # 18,75% sobre o fornecedor
                 elif tipo_servico in ["Produção", "Misto (Terceiros + Custos Internos)"]:
-                    honorarios_ebm = saldo_disponivel * 0.08
-                    valor_fornecedor = saldo_disponivel - honorarios_ebm
+                    honorarios_ebm = valor_fornecedor * 0.08    # 8,00% sobre o fornecedor
                 else:
                     honorarios_ebm = 0.0
-                    valor_fornecedor = saldo_disponivel
 
-            # Caso o usuário tenha forçado manualmente o valor líquido da EBM
-            if valor_liq_ebm_input > 0:
-                base_ebm = valor_liq_ebm_input / (1.0 - 0.05 - 0.048)
-                honorarios_ebm = max(0.0, base_ebm - custos_internos_final)
+            # Base tributável da EBM
+            base_ebm = honorarios_ebm + custos_internos_final
+
+            # Valor Bruto Total da NF da EBM
+            if valor_bruto_input > 0:
+                valor_bruto = valor_bruto_input
             else:
-                base_ebm = honorarios_ebm + custos_internos_final
+                valor_bruto = valor_fornecedor + honorarios_ebm + custos_internos_final
 
         # ----------------------------------------------------
         # RETENÇÕES TRIBUTÁRIAS
         # ----------------------------------------------------
-        # Fornecedor: IRRF 4,8% (somente se NÃO for Simples) e ISS conforme percentual informado
+        # Fornecedor: 4,8% IRRF + % ISS digitada (apenas se NÃO for Simples)
         if simples_nacional == "SIM" or valor_fornecedor <= 0:
             ret_irrf_forn = 0.0
             ret_iss_forn = 0.0
@@ -207,7 +205,7 @@ if submit:
         ret_imp_forn = ret_iss_forn + ret_irrf_forn
         valor_liq_forn = valor_fornecedor - ret_imp_forn
 
-        # EBM QUINTTO: ISS 5% + IRRF 4,8% sobre sua receita própria (honorários + custos internos)
+        # EBM QUINTTO: Retém 5% de ISS + 4,8% de IRRF sobre a base própria (Honorários + Custos Internos)
         ret_iss_ebm = base_ebm * 0.05
         ret_irrf_ebm = base_ebm * 0.048
         ret_imp_ebm = ret_iss_ebm + ret_irrf_ebm
