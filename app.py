@@ -357,4 +357,10 @@ if submit:
                     ('TOPPADDING', (0,0), (-1,-1), 3),
                     ('BOTTOMPADDING', (0,0), (-1,-1), 3),
                 ]))
-                story.append(t_ag
+                story.append(t_ag.setStyle(TableStyle([
+    ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#D9D9D9')),
+    ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+    ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+    ('TOPPADDING', (0,0), (-1,-1), 3),
+    ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+])) # <-- Veja se tem o colchete ']' e os dois parênteses '))'
