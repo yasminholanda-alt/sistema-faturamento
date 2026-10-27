@@ -76,7 +76,7 @@ with st.form("faturamento_form"):
     data_ebm = col4.text_input("Data Emissão EBM (DD/MM/AAAA)")
 
     st.markdown("---")
-    st.subheader("Dados do Fornecedor / Veículo")
+    st.subheader("Dados do Fornecedor / Terceiro")
 
     fornecedor = st.text_input("Razão Social do Fornecedor / Veículo")
     cnpj_forn = st.text_input("CNPJ do Fornecedor")
@@ -96,21 +96,31 @@ with st.form("faturamento_form"):
     )
 
     st.markdown("---")
-    st.subheader("Valores e Decomposição Financeira")
+    st.subheader("Tributação e Valores")
 
-    col9, col10 = st.columns(2)
-    simples_nacional = col9.radio("Fornecedor Optante do Simples Nacional?", ["SIM", "NÃO"])
-    valor_bruto = col10.number_input("Valor Bruto Total da NF (R$)", min_value=0.0, step=0.01)
-
-    col11, col12 = st.columns(2)
-    valor_fornecedor = col11.number_input("Valor Repassado ao Fornecedor (R$)", min_value=0.0, step=0.01)
+    col9, col10, col11 = st.columns(3)
+    simples_nacional = col9.radio("Fornecedor Simples Nacional?", ["SIM", "NÃO"])
     
-    # Campo para custos internos adicionais em processos mistos ou puramente internos
-    valor_custo_interno = col12.number_input(
+    # Campo dinâmico de ISS conforme o município emissor
+    aliq_iss_forn = col10.number_input(
+        "Alíquota ISS Fornecedor (%)",
+        min_value=0.0,
+        max_value=10.0,
+        value=2.0 if simples_nacional == "NÃO" else 0.0,
+        step=0.5,
+        help="Informe o percentual de ISS do município emissor da NF (ex: 2.0, 5.0 ou 0 se isento/sem retenção)."
+    )
+    
+    valor_bruto = col11.number_input("Valor Bruto Total da NF (R$)", min_value=0.0, step=0.01)
+
+    col12, col13 = st.columns(2)
+    valor_fornecedor = col12.number_input("Valor Repassado ao Fornecedor (R$)", min_value=0.0, step=0.01)
+    
+    valor_custo_interno = col13.number_input(
         "Valor de Custos Internos (R$)", 
         min_value=0.0, 
         step=0.01,
-        help="Preencha caso o processo possua serviços internos da EBM junto com terceirizados ou seja 100% interno."
+        help="Informe caso existam custos/serviços internos da EBM no processo."
     )
 
     submit = st.form_submit_button("Gerar PDF Único", use_container_width=True)
@@ -127,35 +137,37 @@ if submit:
         numero_doc = " / ".join(docs_list) if docs_list else "-"
 
         is_custos_puros = tipo_servico == "Custos Internos"
-        
-        # Ajuste de custos internos e honorários
+
+        # 1. Decomposição de Custos Internos e Honorários EBM
         if is_custos_puros:
             custos_internos_final = valor_custo_interno if valor_custo_interno > 0 else valor_bruto
             honorarios_ebm = 0.0
             base_ebm = custos_internos_final
         else:
             custos_internos_final = valor_custo_interno
-            # Honorários é o residual entre o valor bruto, o repasse a terceiros e os custos internos
             honorarios_ebm = max(0.0, valor_bruto - valor_fornecedor - custos_internos_final)
             base_ebm = honorarios_ebm + custos_internos_final
 
-        # Retenções do Fornecedor
+        # 2. Retenções Fornecedor:
+        # IRRF: 4,8% apenas se NÃO for optante do Simples Nacional
+        # ISS: alíquota informada do município do fornecedor (apenas se NÃO for Simples)
         if simples_nacional == "SIM" or valor_fornecedor <= 0:
-            ret_iss_forn = 0.0
             ret_irrf_forn = 0.0
+            ret_iss_forn = 0.0
         else:
-            ret_iss_forn = valor_fornecedor * 0.02
             ret_irrf_forn = valor_fornecedor * 0.048
+            ret_iss_forn = valor_fornecedor * (aliq_iss_forn / 100.0)
 
         ret_imp_forn = ret_iss_forn + ret_irrf_forn
         valor_liq_forn = valor_fornecedor - ret_imp_forn
 
-        # Retenções EBM (ISS 5% + IRRF 4.8%) sobre honorários + custos internos
+        # 3. Retenções EBM (Fortaleza: ISS 5% + IRRF 4,8%)
         ret_iss_ebm = base_ebm * 0.05
         ret_irrf_ebm = base_ebm * 0.048
         ret_imp_ebm = ret_iss_ebm + ret_irrf_ebm
         valor_liq_ebm = base_ebm - ret_imp_ebm
 
+        # Totais consolidados
         valor_liq_total = valor_liq_forn + valor_liq_ebm
         total_iss = ret_iss_ebm + ret_iss_forn
         total_irrf = ret_irrf_ebm + ret_irrf_forn
@@ -209,7 +221,7 @@ if submit:
             elif tipo_servico == "Mídia":
                 texto = f"Segue para pagamento o processo do Serviço de Mídia.<br/><br/>PAGTO REF. {descricao}<br/>CNPJ: {cnpj_forn}<br/>Documento Nº {numero_doc} no valor de <b>R$ {fmt(valor_bruto)}</b>."
             elif tipo_servico == "Misto (Terceiros + Custos Internos)":
-                texto = f"Segue para pagamento o processo de Produção/Mídia com Custos Internos agregados.<br/><br/>PAGTO REF. A {descricao}<br/>Fornecedor: {fornecedor} (CNPJ: {cnpj_forn}) e EBM QUINTTO (CNPJ: 14.470.051/0001-91)<br/>Documento Nº {numero_doc} no valor de <b>R$ {fmt(valor_bruto)}</b>."
+                texto = f"Segue para pagamento o processo com Terceirização e Custos Internos agregados.<br/><br/>PAGTO REF. A {descricao}<br/>Fornecedor: {fornecedor} (CNPJ: {cnpj_forn}) e EBM QUINTTO (CNPJ: 14.470.051/0001-91)<br/>Documento Nº {numero_doc} no valor de <b>R$ {fmt(valor_bruto)}</b>."
             else:
                 texto = f"Segue para pagamento o processo de Produção.<br/><br/>PAGTO REF. A {descricao}<br/>CNPJ: {cnpj_forn}<br/>Documento Nº {numero_doc} no valor de <b>R$ {fmt(valor_bruto)}</b>."
 
@@ -366,7 +378,7 @@ if submit:
             col_w3 = [2.5 * cm, 2.2 * cm, 3.2 * cm, 7.0 * cm, 1.8 * cm, 1.8 * cm, 2.7 * cm, 2.3 * cm]
 
             # Tabela 1: Agência (Base = Honorários + Custos Internos)
-            head_ag = [p_h("NF AGÊNCIA"), p_h("DATA EMISSÃO"), p_h("CNPJ"), p_h("RAZÃO SOCIAL"), p_h("ISS"), p_h("IRRF"), p_h("BASE DE CÁLCULO"), p_h("SIMPLES NACIONAL")]
+            head_ag = [p_h("NF AGÊNCIA"), p_h("DATA EMISSÃO"), p_h("CNPJ"), p_h("RAZÃO SOCIAL"), p_h("ISS (5%)"), p_h("IRRF (4,8%)"), p_h("BASE DE CÁLCULO"), p_h("SIMPLES NACIONAL")]
             row_ag = [p_c(nf_ebm), p_c(data_ebm), p_c("14470051000191"), p_c("EBM QUINTTO COMUNICAÇÃO LTDA"), p_c(fmt(ret_iss_ebm)), p_c(fmt(ret_irrf_ebm)), p_c(fmt(base_ebm)), p_c("NÃO")]
             tot_ag = [p_c("TOTAL", True), p_c(''), p_c(''), p_c(''), p_c(fmt(ret_iss_ebm), True), p_c(fmt(ret_irrf_ebm), True), p_c(fmt(base_ebm), True), p_c('')]
 
@@ -382,7 +394,8 @@ if submit:
             story.append(Spacer(1, 12))
 
             # Tabela 2: Fornecedor Terceirizado
-            head_fo = [p_h("NF FORNECEDOR"), p_h("DATA EMISSÃO"), p_h("CNPJ"), p_h("RAZÃO SOCIAL"), p_h("ISS"), p_h("IRRF"), p_h("BASE DE CÁLCULO"), p_h("SIMPLES NACIONAL")]
+            lbl_iss_forn = f"ISS ({aliq_iss_forn:.1f}%)" if simples_nacional == "NÃO" and aliq_iss_forn > 0 else "ISS"
+            head_fo = [p_h("NF FORNECEDOR"), p_h("DATA EMISSÃO"), p_h("CNPJ"), p_h("RAZÃO SOCIAL"), p_h(lbl_iss_forn), p_h("IRRF (4,8%)"), p_h("BASE DE CÁLCULO"), p_h("SIMPLES NACIONAL")]
             row_fo = [p_c(nf_forn if nf_forn else ''), p_c(data_forn if data_forn else ''), p_c(cnpj_forn if cnpj_forn else ''), p_c(fornecedor if fornecedor else ''), p_c(fmt(ret_iss_forn)), p_c(fmt(ret_irrf_forn)), p_c(fmt(valor_fornecedor)), p_c(simples_nacional)]
             tot_fo = [p_c("TOTAL", True), p_c(''), p_c(''), p_c(''), p_c(fmt(ret_iss_forn), True), p_c(fmt(ret_irrf_forn), True), p_c(fmt(valor_fornecedor), True), p_c('')]
 
