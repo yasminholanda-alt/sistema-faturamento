@@ -49,4 +49,6 @@ DESTINATARIO_PADRAO = {
 
 CONTRATOS = {
     "C7": {"numero": "177/2024", **DESTINATARIO_PADRAO},
-    "C9": {"numero": "125/2023", **DESTINATARIO_PADRAO
+    "C9": {"numero": "125/2023", **DESTINATARIO_PADRAO},
+    "CC": {"numero": "125/2023", **DESTINATARIO_PADRAO},
+}
