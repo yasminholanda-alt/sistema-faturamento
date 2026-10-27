@@ -42,7 +42,7 @@ with st.form("faturamento_form"):
     tipo_servico = col1.selectbox("Tipo de Serviço", ["Mídia", "Produção", "Custos Internos"])
     empenho = col2.text_input("Nº do Empenho")
 
-    nup = st.text_input("NUP (Ex: 30001.008502/2026-87)")
+    nup = st.text_input("NUP (Ex: 00000.000000/0000-00)")
     descricao = st.text_area("Descrição do Serviço (Texto da NF)")
 
     col3, col4 = st.columns(2)
