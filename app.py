@@ -82,13 +82,24 @@ with st.form("faturamento_form"):
     nf_forn = col5.text_input("Nº NF Fornecedor")
     data_forn = col6.text_input("Data Emissão Fornecedor (DD/MM/AAAA)")
 
+    # ----------------------------------------------------
+    # CAMPOS SEPARADOS CONFORME SOLICITADO
+    # ----------------------------------------------------
     col7, col8 = st.columns(2)
-    numero_doc = col7.text_input("Nº do Documento (OC / PI / AP / PP / Plano)")
-    simples_nacional = col8.radio("Fornecedor Optante do Simples Nacional?", ["SIM", "NÃO"])
+    doc_cliente = col7.text_input(
+        "Nº Doc. Cliente (AP / Plano / OC)", 
+        help="Documento enviado pela EBM para assinatura do cliente."
+    )
+    doc_terceiros = col8.text_input(
+        "Nº Doc. Terceiros (PP / PI)", 
+        help="Documento enviado pela EBM para validação da empresa terceirizada/veículo."
+    )
 
     col9, col10 = st.columns(2)
-    valor_bruto = col9.number_input("Valor Bruto Total da NF (R$)", min_value=0.0, step=0.01)
-    valor_fornecedor = col10.number_input("Valor Repassado ao Fornecedor (R$)", min_value=0.0, step=0.01)
+    simples_nacional = col9.radio("Fornecedor Optante do Simples Nacional?", ["SIM", "NÃO"])
+    valor_bruto = col10.number_input("Valor Bruto Total da NF (R$)", min_value=0.0, step=0.01)
+
+    valor_fornecedor = st.number_input("Valor Repassado ao Fornecedor (R$)", min_value=0.0, step=0.01)
 
     submit = st.form_submit_button("Gerar PDF Único", use_container_width=True)
 
@@ -99,6 +110,10 @@ if submit:
     try:
         contrato = CONTRATOS[contrato_sel]
         numero_contrato = contrato["numero"]
+
+        # Combina os documentos para exibição nos relatórios/PDFs
+        docs_list = [d.strip() for d in [doc_cliente, doc_terceiros] if d.strip()]
+        numero_doc = " / ".join(docs_list) if docs_list else "-"
 
         # Cálculos Financeiros
         honorarios_ebm = valor_bruto - valor_fornecedor
