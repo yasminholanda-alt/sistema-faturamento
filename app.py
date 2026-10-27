@@ -10,7 +10,7 @@ from reportlab.lib.units import cm
 
 st.set_page_config(page_title="Gerador de Faturamento EBM", layout="centered")
 
-st.title("📊 Gerador de Faturamento - EBM Quintto")
+st.title("📊 Gerador de Faturamento Casa Civil - EBM Quintto")
 st.write("Preencha as informações abaixo para gerar os 3 relatórios em PDF.")
 
 # Nome oficial da nova logo enviada
