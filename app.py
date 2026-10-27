@@ -389,7 +389,7 @@ if submit:
 
         st.success(f"Dossiê gerado com sucesso para o contrato {contrato_sel} ({numero_contrato})!")
         st.download_button(
-            label="📄 Baixar Dossiê Completo (PDF Único)",
+            label="📄 Baixar Dossiê Completo (BAIXAR)",
             data=pdf_final_buffer.getvalue(),
             file_name=f"Faturamento_CasaCivil_NF{nf_ebm}.pdf",
             mime="application/pdf",
