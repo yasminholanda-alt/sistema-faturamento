@@ -110,22 +110,22 @@ with st.form("faturamento_form"):
         max_value=10.0,
         value=2.0 if simples_nacional == "NÃO" else 0.0,
         step=0.5,
-        help="Alíquota de ISS do município emissor da NF da terceirizada (retido na fonte apenas se NÃO for Simples Nacional)."
+        help="Alíquota de ISS do município do fornecedor (retido apenas se NÃO for Simples Nacional)."
     )
 
     col11, col12 = st.columns(2)
-    valor_bruto_input = col11.number_input(
+    valor_bruto = col11.number_input(
         "Valor Bruto Total da NF (R$)", 
         min_value=0.0, 
         step=0.01,
-        help="Valor global da NF para o cliente. Se deixar 0,00, será calculado somando a terceirizada + comissão + custos internos."
+        help="Valor total da NF emitida para o cliente."
     )
 
     valor_fornecedor_input = col12.number_input(
         "Valor Líquido (Bruto da Nota do Fornecedor / Veículo)", 
         min_value=0.0, 
         step=0.01,
-        help="Valor faturado pela empresa terceirizada / veículo."
+        help="Valor da NF do fornecedor/terceirizado. Deixe 0,00 para calcular subtraindo a comissão do valor bruto."
     )
 
     col13, col14 = st.columns(2)
@@ -133,14 +133,14 @@ with st.form("faturamento_form"):
         "Valor Líquido da NF da EBM (Opcional - R$)", 
         min_value=0.0, 
         step=0.01,
-        help="Deixe 0,00 para o sistema calcular automaticamente a comissão (18,75% para Mídia ou 8% para Produção) descontando 5% ISS e 4,8% IRRF."
+        help="Deixe 0,00 para apuração automática."
     )
 
     valor_custo_interno = col14.number_input(
         "Valor de Custos Internos (R$)", 
         min_value=0.0, 
         step=0.01,
-        help="Preencha caso haja serviços internos agregados ao processo."
+        help="Informe caso existam custos internos da EBM no processo."
     )
 
     submit = st.form_submit_button("Gerar PDF Único", use_container_width=True)
@@ -159,44 +159,44 @@ if submit:
         is_custos_puros = tipo_servico == "Custos Internos"
 
         # ----------------------------------------------------
-        # DEFINIÇÃO DOS VALORES E HONORÁRIOS
+        # DECOMPOSIÇÃO DIMINUINDO OS VALORES
         # ----------------------------------------------------
         if is_custos_puros:
             valor_fornecedor = 0.0
-            custos_internos_final = valor_custo_interno if valor_custo_interno > 0 else valor_bruto_input
+            custos_internos_final = valor_custo_interno if valor_custo_interno > 0 else valor_bruto
             honorarios_ebm = 0.0
             base_ebm = custos_internos_final
         else:
             custos_internos_final = valor_custo_interno
-            valor_fornecedor = valor_fornecedor_input
+            saldo_disponivel = max(0.0, valor_bruto - custos_internos_final)
 
-            # Cálculo da comissão sobre o valor bruto do veículo/terceirizada
-            if tipo_servico == "Mídia":
-                taxa_honorario = 0.1875  # 18,75%
-            elif tipo_servico in ["Produção", "Misto (Terceiros + Custos Internos)"]:
-                taxa_honorario = 0.08    # 8,00%
+            # Se o usuário digitou o valor do fornecedor, subtrai para achar os honorários
+            if valor_fornecedor_input > 0:
+                valor_fornecedor = valor_fornecedor_input
+                honorarios_ebm = max(0.0, saldo_disponivel - valor_fornecedor)
             else:
-                taxa_honorario = 0.0
+                # Subtrai a comissão/honorários do total para encontrar o repasse ao fornecedor
+                if tipo_servico == "Mídia":
+                    honorarios_ebm = saldo_disponivel * 0.1875
+                    valor_fornecedor = saldo_disponivel - honorarios_ebm
+                elif tipo_servico in ["Produção", "Misto (Terceiros + Custos Internos)"]:
+                    honorarios_ebm = saldo_disponivel * 0.08
+                    valor_fornecedor = saldo_disponivel - honorarios_ebm
+                else:
+                    honorarios_ebm = 0.0
+                    valor_fornecedor = saldo_disponivel
 
-            # Se o usuário digitou o valor líquido da EBM diretamente, calcula a base bruta da EBM por fora
-            # Líquido = Bruto * (1 - 0.05 - 0.048) = Bruto * 0.902
+            # Caso o usuário tenha forçado manualmente o valor líquido da EBM
             if valor_liq_ebm_input > 0:
                 base_ebm = valor_liq_ebm_input / (1.0 - 0.05 - 0.048)
                 honorarios_ebm = max(0.0, base_ebm - custos_internos_final)
             else:
-                honorarios_ebm = valor_fornecedor * taxa_honorario
                 base_ebm = honorarios_ebm + custos_internos_final
-
-        # Define o Valor Bruto Total da NF
-        if valor_bruto_input > 0:
-            valor_bruto = valor_bruto_input
-        else:
-            valor_bruto = valor_fornecedor + honorarios_ebm + custos_internos_final
 
         # ----------------------------------------------------
         # RETENÇÕES TRIBUTÁRIAS
         # ----------------------------------------------------
-        # Terceirizada: 4,8% IRRF + % ISS digitada (apenas se NÃO for Simples Nacional)
+        # Fornecedor: IRRF 4,8% (somente se NÃO for Simples) e ISS conforme percentual informado
         if simples_nacional == "SIM" or valor_fornecedor <= 0:
             ret_irrf_forn = 0.0
             ret_iss_forn = 0.0
@@ -207,7 +207,7 @@ if submit:
         ret_imp_forn = ret_iss_forn + ret_irrf_forn
         valor_liq_forn = valor_fornecedor - ret_imp_forn
 
-        # EBM QUINTTO: Não é Simples Nacional -> Retém 5% ISS + 4,8% IRRF
+        # EBM QUINTTO: ISS 5% + IRRF 4,8% sobre sua receita própria (honorários + custos internos)
         ret_iss_ebm = base_ebm * 0.05
         ret_irrf_ebm = base_ebm * 0.048
         ret_imp_ebm = ret_iss_ebm + ret_irrf_ebm
@@ -423,7 +423,7 @@ if submit:
 
             col_w3 = [2.5 * cm, 2.2 * cm, 3.2 * cm, 7.0 * cm, 1.8 * cm, 1.8 * cm, 2.7 * cm, 2.3 * cm]
 
-            # Tabela 1: EBM QUINTTO (ISS 5% + IRRF 4,8% | Não optante do Simples)
+            # Tabela 1: EBM QUINTTO (ISS 5% + IRRF 4,8%)
             head_ag = [p_h("NF AGÊNCIA"), p_h("DATA EMISSÃO"), p_h("CNPJ"), p_h("RAZÃO SOCIAL"), p_h("ISS (5%)"), p_h("IRRF (4,8%)"), p_h("BASE DE CÁLCULO"), p_h("SIMPLES NACIONAL")]
             row_ag = [p_c(nf_ebm), p_c(data_ebm), p_c("14470051000191"), p_c("EBM QUINTTO COMUNICAÇÃO LTDA"), p_c(fmt(ret_iss_ebm)), p_c(fmt(ret_irrf_ebm)), p_c(fmt(base_ebm)), p_c("NÃO")]
             tot_ag = [p_c("TOTAL", True), p_c(''), p_c(''), p_c(''), p_c(fmt(ret_iss_ebm), True), p_c(fmt(ret_irrf_ebm), True), p_c(fmt(base_ebm), True), p_c('')]
